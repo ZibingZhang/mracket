@@ -1,0 +1,31 @@
+[project]
+name = "racket"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    {name = "Zibing Zhang", email = "contact@zibingzhang.com"}
+]
+
+[project.optional-dependencies]
+dev = [
+    "build>=0.8",
+    "black>=23.1",
+    "flake8>=6.0",
+    "isort>=5.12",
+    "mypy>=1.0",
+    "pyproject-flake8>=6.0",
+    "pytest>=7.1",
+]
+
+[tool.black]
+line-length = 120
+
+[tool.flake8]
+max-line-length = 120
+extend-ignore = "E203"
+per-file-ignores = """
+    mracket/reader/lexer.py: E501
+"""
+
+[tool.isort]
+profile = "black"
