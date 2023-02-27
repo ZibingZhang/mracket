@@ -1,0 +1,3 @@
+from mracket.mutation.generator import procedure_replacement
+
+ProcedureReplacement = procedure_replacement.ProcedureReplacement

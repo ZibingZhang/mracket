@@ -25,7 +25,13 @@ max-line-length = 120
 extend-ignore = "E203"
 per-file-ignores = """
     mracket/reader/lexer.py: E501
+    mracket/test/__init__.py: F401
 """
 
 [tool.isort]
 profile = "black"
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+]

@@ -28,10 +28,9 @@ class IllegalStateError(ReaderError):
 class LexerError(ReaderError, metaclass=abc.ABCMeta):
     """A lexer error."""
 
-    def __init__(self, lineno: int, colno: int, message: str = "") -> None:
+    def __init__(self, offset: int, message: str = "") -> None:
         super().__init__(message)
-        self.lineno = lineno
-        self.colno = colno
+        self.offset = offset
 
 
 class UnexpectedEOFInStringError(LexerError):

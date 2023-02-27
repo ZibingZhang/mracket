@@ -70,11 +70,21 @@ def test_tokenize_special_characater(special_character: str) -> None:
     assert tokens[0].source == rf"#\{special_character}"
 
 
-@pytest.mark.parametrize("source,strings", [[r"#\49", [r"#\4", "9"]], [r'1"a"', ["1", '"a"']]])
+@pytest.mark.parametrize("source,strings", [[r"#\49", [r"#\4", "9"]]])
 def test_tokenize_adjacent_tokens(source, strings: list[str]) -> None:
     tokens = Lexer(source).tokenize()
     assert len(tokens) == len(strings) + 1
     for token, source in zip(tokens, strings):
+        assert token.source == source
+
+
+@pytest.mark.parametrize("source,strings", [[r'1"a"', ["1", '"a"']], [r"1)", ["1", ")"]]])
+def test_tokenize_adjacent_to_number_1(source, strings: list[str]) -> None:
+    tokens = Lexer(source).tokenize()
+    assert len(tokens) == len(strings) + 1
+    for token, source in zip(tokens, strings):
+        if source == "1":
+            assert token.type is TokenType.NUMBER
         assert token.source == source
 
 

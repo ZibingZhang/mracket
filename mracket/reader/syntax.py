@@ -6,22 +6,6 @@ from typing import Any
 
 from mracket.reader import lexer
 
-__all__ = [
-    "RacketProgramNode",
-    "RacketReaderDirectiveNode",
-    "RacketConstantDefinitionNode",
-    "RacketStructureDefinitionNode",
-    "RacketBooleanNode",
-    "RacketCharacterNode",
-    "RacketNameNode",
-    "RacketNumberNode",
-    "RacketStringNode",
-    "RacketLambdaNode",
-    "RacketProcedureApplicationNode",
-    "RacketCheckExpectNode",
-    "RacketLibraryRequireNode",
-]
-
 
 class RacketASTVisitor(metaclass=abc.ABCMeta):
     """A Racket AST visitor."""
@@ -31,11 +15,11 @@ class RacketASTVisitor(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def visit_program_node(self, node: RacketProgramNode) -> Any:
-        ...
+        """Visit a program node."""
 
     @abc.abstractmethod
     def visit_reader_directive_node(self, node: RacketReaderDirectiveNode) -> Any:
-        ...
+        """Visit a reader directive node."""
 
     @abc.abstractmethod
     def visit_constant_definition_node(self, node: RacketConstantDefinitionNode) -> Any:
@@ -46,23 +30,11 @@ class RacketASTVisitor(metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def visit_boolean_node(self, node: RacketBooleanNode) -> Any:
-        ...
-
-    @abc.abstractmethod
-    def visit_character_node(self, node: RacketCharacterNode) -> Any:
+    def visit_literal_node(self, node: RacketLiteralNode) -> Any:
         ...
 
     @abc.abstractmethod
     def visit_name_node(self, node: RacketNameNode) -> Any:
-        ...
-
-    @abc.abstractmethod
-    def visit_number_node(self, node: RacketNumberNode) -> Any:
-        ...
-
-    @abc.abstractmethod
-    def visit_string_node(self, node: RacketStringNode) -> Any:
         ...
 
     @abc.abstractmethod
@@ -121,7 +93,7 @@ class RacketStatementNode(RacketASTNode, metaclass=abc.ABCMeta):
 class RacketDefinitionNode(RacketStatementNode, metaclass=abc.ABCMeta):
     """A definition node."""
 
-    def __init__(self, lparen: lexer.Token, rparen: lexer.Token, name: lexer.Token) -> None:
+    def __init__(self, lparen: lexer.Token, rparen: lexer.Token, name: RacketNameNode) -> None:
         super().__init__(lparen)
         self.lparen = lparen
         self.rparen = rparen
@@ -131,7 +103,9 @@ class RacketDefinitionNode(RacketStatementNode, metaclass=abc.ABCMeta):
 class RacketConstantDefinitionNode(RacketDefinitionNode):
     """A constant definition node."""
 
-    def __init__(self, lparen: lexer.Token, rparen: lexer.Token, name: lexer.Token, expression: RacketExpressionNode):
+    def __init__(
+        self, lparen: lexer.Token, rparen: lexer.Token, name: RacketNameNode, expression: RacketExpressionNode
+    ):
         super().__init__(lparen, rparen, name)
         self.expression = expression
 
@@ -142,7 +116,7 @@ class RacketConstantDefinitionNode(RacketDefinitionNode):
 class RacketStructureDefinitionNode(RacketDefinitionNode):
     """A structure definition node."""
 
-    def __init__(self, lparen: lexer.Token, rparen: lexer.Token, name: lexer.Token, fields: list[RacketNameNode]):
+    def __init__(self, lparen: lexer.Token, rparen: lexer.Token, name: RacketNameNode, fields: list[RacketNameNode]):
         super().__init__(lparen, rparen, name)
         self.fields = fields
 
@@ -154,50 +128,22 @@ class RacketExpressionNode(RacketStatementNode, metaclass=abc.ABCMeta):
     """An expression node."""
 
 
-class RacketAtomicNode(RacketExpressionNode, metaclass=abc.ABCMeta):
-    """An atomic node.
-
-    Does not contain any parentheses.
-    """
-
-
-class RacketBooleanNode(RacketAtomicNode):
-    """A boolean node."""
+class RacketLiteralNode(RacketExpressionNode):
+    """A literal."""
 
     def accept_visitor(self, visitor: RacketASTVisitor) -> Any:
-        return visitor.visit_boolean_node(self)
+        return visitor.visit_literal_node(self)
 
 
-class RacketCharacterNode(RacketAtomicNode):
-    """A character node."""
-
-    def accept_visitor(self, visitor: RacketASTVisitor) -> Any:
-        return visitor.visit_character_node(self)
-
-
-class RacketNameNode(RacketAtomicNode):
+class RacketNameNode(RacketExpressionNode):
     """A name node."""
 
     def accept_visitor(self, visitor: RacketASTVisitor) -> Any:
         return visitor.visit_name_node(self)
 
 
-class RacketNumberNode(RacketAtomicNode):
-    """A number node."""
-
-    def accept_visitor(self, visitor: RacketASTVisitor) -> Any:
-        return visitor.visit_number_node(self)
-
-
-class RacketStringNode(RacketAtomicNode):
-    """A string node."""
-
-    def accept_visitor(self, visitor: RacketASTVisitor) -> Any:
-        return visitor.visit_string_node(self)
-
-
-class RacketComplexNode(RacketExpressionNode, metaclass=abc.ABCMeta):
-    """A complex node.
+class RacketSExprNode(RacketExpressionNode, metaclass=abc.ABCMeta):
+    """An s-expression node.
 
     Starts with a left parenthesis and ends with a right parenthesis.
     """
@@ -208,7 +154,7 @@ class RacketComplexNode(RacketExpressionNode, metaclass=abc.ABCMeta):
         self.rparen = rparen
 
 
-class RacketLambdaNode(RacketComplexNode):
+class RacketLambdaNode(RacketSExprNode):
     """A lambda node."""
 
     def __init__(
@@ -226,7 +172,7 @@ class RacketLambdaNode(RacketComplexNode):
         return visitor.visit_lambda_node(self)
 
 
-class RacketProcedureApplicationNode(RacketComplexNode):
+class RacketProcedureApplicationNode(RacketSExprNode):
     """A procedure application node."""
 
     def __init__(self, lparen: lexer.Token, rparen: lexer.Token, expressions: list[RacketExpressionNode]) -> None:
@@ -263,7 +209,7 @@ class RacketCheckExpectNode(RacketTestCaseNode):
 class RacketLibraryRequireNode(RacketStatementNode):
     """A library require node."""
 
-    def __init__(self, lparen: lexer.Token, rparen: lexer.Token, library: lexer.Token) -> None:
+    def __init__(self, lparen: lexer.Token, rparen: lexer.Token, library: RacketNameNode) -> None:
         super().__init__(lparen)
         self.lparen = lparen
         self.rparen = rparen

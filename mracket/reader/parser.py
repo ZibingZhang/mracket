@@ -6,17 +6,21 @@ from typing import Literal
 
 from mracket.reader import errors, lexer, syntax
 
-__all__ = ["Parser"]
-
 MATCHING_PARENS = {
     "(": ")",
     "[": "]",
     "{": "}",
 }
+LITERAL_TOKEN_TYPES = {
+    lexer.TokenType.BOOLEAN,
+    lexer.TokenType.CHARACTER,
+    lexer.TokenType.NUMBER,
+    lexer.TokenType.STRING,
+}
 
-DEFINITION_PATTERN = re.compile(r"define(-struct)?")
-TEST_CASE_PATTERN = re.compile(r"check-(expect|random|within|member-of|range|satisfied|error)")
-LIBRARY_REQUIRE_PATTERN = re.compile(r"require")
+DEFINITION = re.compile(r"define(-struct)?")
+TEST_CASE = re.compile(r"check-(expect|random|within|member-of|range|satisfied|error)")
+LIBRARY_REQUIRE = re.compile(r"require")
 
 
 class Parser:
@@ -24,14 +28,14 @@ class Parser:
 
     def __init__(self, tokens: list[lexer.Token]) -> None:
         self._tokens = self._token_stream = tokens
-        self._current_token = lexer.Token(type=lexer.TokenType.EOF, lineno=-1, colno=-1)
+        self._current_token = lexer.EOF_TOKEN
 
-    def parse(self) -> syntax.RacketASTNode:
+    def parse(self) -> syntax.RacketProgramNode:
         """Convert the tokens into an AST."""
 
         # reset stream
         self._token_stream = self._tokens.copy()
-        self._current_token = self._token_stream[0]
+        self._current_token = self._token_stream.pop(0)
 
         statements = []
         reader_directive = None
@@ -70,8 +74,9 @@ class Parser:
         self._eat(lexer.TokenType.SYMBOL)
         if definition_type == "define":
             if self._current_token.type is lexer.TokenType.LPAREN:
+                # desugar (define (name variable ...) expr) to (define name (lambda (variable ...) expr)
                 self._eat(lexer.TokenType.LPAREN)
-                name = self._eat(lexer.TokenType.SYMBOL)
+                name = self._name()
                 variables = []
                 while self._current_token.type is not lexer.TokenType.RPAREN:
                     variables.append(self._name())
@@ -83,11 +88,14 @@ class Parser:
                     rparen=rparen,
                     name=name,
                     expression=syntax.RacketLambdaNode(
-                        lparen=lexer.LPAREN_TOKEN, rparen=lexer.RPAREN_TOKEN, variables=variables, expression=expression
+                        lparen=lexer.DUMMY_LPAREN_TOKEN,
+                        rparen=lexer.DUMMY_RPAREN_TOKEN,
+                        variables=variables,
+                        expression=expression,
                     ),
                 )
             elif self._current_token.type is lexer.TokenType.SYMBOL:
-                name = self._eat(lexer.TokenType.SYMBOL)
+                name = self._name()
                 expression = self._expression()
                 rparen = self._eat(lexer.TokenType.RPAREN)
                 return syntax.RacketConstantDefinitionNode(
@@ -96,7 +104,7 @@ class Parser:
             else:
                 raise errors.IllegalStateError()
         elif definition_type == "define-struct":
-            name = self._eat(lexer.TokenType.SYMBOL)
+            name = self._name()
             self._eat(lexer.TokenType.LPAREN)
             fields = []
             while self._current_token.type is not lexer.TokenType.RPAREN:
@@ -109,16 +117,13 @@ class Parser:
 
     def _expression(self) -> syntax.RacketExpressionNode:
         token_type = self._current_token.type
-        if token_type is lexer.TokenType.BOOLEAN:
-            return syntax.RacketBooleanNode(token=self._eat(lexer.TokenType.BOOLEAN))
-        elif token_type is lexer.TokenType.CHARACTER:
-            return syntax.RacketCharacterNode(token=self._eat(lexer.TokenType.CHARACTER))
-        elif token_type is lexer.TokenType.NUMBER:
-            return syntax.RacketNumberNode(token=self._eat(lexer.TokenType.NUMBER))
-        elif token_type is lexer.TokenType.STRING:
-            return syntax.RacketStringNode(token=self._eat(lexer.TokenType.STRING))
+        if token_type in LITERAL_TOKEN_TYPES:
+            return syntax.RacketLiteralNode(token=self._eat(token_type))
         elif token_type is lexer.TokenType.SYMBOL:
             return self._name()
+
+        if token_type is lexer.TokenType.EOF:
+            raise ValueError
 
         # TODO: handle other cases, such as quotes
 
@@ -152,7 +157,7 @@ class Parser:
     def _library_require(self) -> syntax.RacketLibraryRequireNode:
         lparen = self._eat(lexer.TokenType.LPAREN)
         self._eat(lexer.TokenType.SYMBOL)
-        library = self._eat(lexer.TokenType.SYMBOL)
+        library = self._name()
         rparen = self._eat(lexer.TokenType.RPAREN)
         return syntax.RacketLibraryRequireNode(lparen=lparen, rparen=rparen, library=library)
 
@@ -165,13 +170,13 @@ class Parser:
         return previous_token
 
     def _is_defintion(self) -> str | Literal[False]:
-        return self._is_special_statement(DEFINITION_PATTERN)
+        return self._is_special_statement(DEFINITION)
 
     def _is_test_case(self) -> str | Literal[False]:
-        return self._is_special_statement(TEST_CASE_PATTERN)
+        return self._is_special_statement(TEST_CASE)
 
     def _is_library_require(self) -> str | Literal[False]:
-        return self._is_special_statement(LIBRARY_REQUIRE_PATTERN)
+        return self._is_special_statement(LIBRARY_REQUIRE)
 
     def _is_special_statement(self, pattern: re.Pattern) -> str | Literal[False]:
         if not (self._current_token.type is lexer.TokenType.LPAREN and len(self._token_stream) > 0):

@@ -4,13 +4,11 @@ from __future__ import annotations
 import dataclasses
 import enum
 import re
-from typing import Generator, Sequence
+from collections.abc import Generator, Sequence
+from typing import cast
 
 from mracket.reader import errors
 
-__all__ = ["LPAREN_TOKEN", "RPAREN_TOKEN", "Lexer", "Token", "TokenType"]
-
-# TODO: make case insentitive
 # regex for numbers
 
 # fmt: off
@@ -126,7 +124,7 @@ BOOLEAN = re.compile(r"#(true|false)")
 CHARACTER = re.compile(fr"#\\(null?|backspace|tab|newline|linefeed|vtab|page|return|space|rubout|{DIGIT_8}{{3}}|u{DIGIT_16}{{1,4}}|U{DIGIT_16}{{1,8}}|[a-zA-Z](?![a-zA-Z])|[0-7](?![0-7])|[^a-zA-Z0-7])")
 DELIMITER = re.compile(r"[()[\]{}'`,]")
 LINE_COMMENT = re.compile(r";.*")
-NUMBER = re.compile(fr"({GENERAL_NUMBER}|{LEADING_EXACTNESS_NUMBER})(?=\s|$|\")")
+NUMBER = re.compile(fr"({GENERAL_NUMBER}|{LEADING_EXACTNESS_NUMBER})(?=$|[()[\]{{}}'`,\"\s])", re.IGNORECASE)
 READER_DIRECTIVE = re.compile(r"#(lang|reader).*")
 STRING = re.compile(fr'"{STRING_CHARACTER}*"', re.DOTALL)
 SYMBOL = re.compile(fr"({ESCAPED_SYMBOL_CHARACTERS}|{LEADING_SYMBOL_CHARACTER})({ESCAPED_SYMBOL_CHARACTERS}|{SYMBOL_CHARACTER})*", re.DOTALL)
@@ -171,6 +169,7 @@ class Token:
     """A lexical token."""
 
     type: TokenType
+    offset: int
     lineno: int
     colno: int
     source: str = ""
@@ -179,9 +178,15 @@ class Token:
         if self.type is not TokenType.EOF:
             assert self.source != ""
 
+    @staticmethod
+    def from_source(token_type: TokenType, source: str) -> Token:
+        return Token(type=token_type, offset=-1, lineno=-1, colno=-1, source=source)
 
-LPAREN_TOKEN = Token(type=TokenType.LPAREN, lineno=-1, colno=-1, source="(")
-RPAREN_TOKEN = Token(type=TokenType.RPAREN, lineno=-1, colno=-1, source="(")
+
+EOF_TOKEN = Token(type=TokenType.EOF, offset=-1, lineno=-1, colno=-1)
+DUMMY_TOKEN = cast(Token, None)
+DUMMY_LPAREN_TOKEN = Token(type=TokenType.LPAREN, offset=-1, lineno=-1, colno=-1, source="(")
+DUMMY_RPAREN_TOKEN = Token(type=TokenType.RPAREN, offset=-1, lineno=-1, colno=-1, source="(")
 
 
 class Lexer:
@@ -189,8 +194,9 @@ class Lexer:
 
     def __init__(self, source: str):
         self._source = self._truncated_source = source
-        self._lineno = 0
-        self._colno = 0
+        self._offset = 0
+        self._lineno = 1
+        self._colno = 1
 
     def tokenize(self) -> list[Token]:
         """Convert the source program into tokens."""
@@ -201,7 +207,7 @@ class Lexer:
         self._truncated_source = self._source
         while (token := self._next_token()) is not None:
             yield token
-        yield Token(type=TokenType.EOF, lineno=-1, colno=-1)
+        yield EOF_TOKEN
 
     def _next_token(self) -> Token | None:
         while True:
@@ -225,7 +231,7 @@ class Lexer:
             if re_match := re.match(pattern, self._truncated_source):
                 return self._make_token(token_type, re_match.group())
 
-        raise errors.UnrecognizedTokenError(self._lineno, self._colno)
+        raise errors.UnrecognizedTokenError(self._offset)
 
     def _make_token(self, token_type: TokenType, token_source: str) -> Token:
         # punctuators have different types
@@ -241,12 +247,13 @@ class Lexer:
             elif token_source in ",":
                 token_type = TokenType.UNQUOTE
 
-        token = Token(type=token_type, lineno=self._lineno, colno=self._colno, source=token_source)
+        token = Token(type=token_type, offset=self._offset, lineno=self._lineno, colno=self._colno, source=token_source)
         self._advance_position(token_source)
         self._truncate_source(len(token.source))
         return token
 
     def _advance_position(self, token_source: str) -> None:
+        self._offset += len(token_source)
         for character in token_source:
             if character == "\n":
                 self._lineno += 1
