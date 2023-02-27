@@ -1,4 +1,4 @@
-"""AST for Racket."""
+"""Abstract syntax tree defition for Racket programs."""
 from __future__ import annotations
 
 import abc
@@ -15,43 +15,83 @@ class RacketASTVisitor(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def visit_program_node(self, node: RacketProgramNode) -> Any:
-        """Visit a program node."""
+        """Visit a program node.
+
+        :param node: A program node
+        :return: The result of the visitor visiting this node
+        """
 
     @abc.abstractmethod
     def visit_reader_directive_node(self, node: RacketReaderDirectiveNode) -> Any:
-        """Visit a reader directive node."""
+        """Visit a reader directive node.
+
+        :param node: A reader directive node
+        :return: The result of the visitor visiting this node
+        """
 
     @abc.abstractmethod
     def visit_constant_definition_node(self, node: RacketConstantDefinitionNode) -> Any:
-        ...
+        """Visit a constant definition node.
+
+        :param node: A constant definition node
+        :return: The result of the visitor visiting this node
+        """
 
     @abc.abstractmethod
     def visit_structure_definition_node(self, node: RacketStructureDefinitionNode) -> Any:
-        ...
+        """Visit a structure definition node.
+
+        :param node: A structure definition node
+        :return: The result of the visitor visiting this node
+        """
 
     @abc.abstractmethod
     def visit_literal_node(self, node: RacketLiteralNode) -> Any:
-        ...
+        """Visit a literal node.
+
+        :param node: A literal node
+        :return: The result of the visitor visiting this node
+        """
 
     @abc.abstractmethod
     def visit_name_node(self, node: RacketNameNode) -> Any:
-        ...
+        """Visit a name node.
+
+        :param node: A name node
+        :return: The result of the visitor visiting this node
+        """
 
     @abc.abstractmethod
     def visit_lambda_node(self, node: RacketLambdaNode) -> Any:
-        ...
+        """Visit a lambda node.
+
+        :param node: A lambda node
+        :return: The result of the visitor visiting this node
+        """
 
     @abc.abstractmethod
     def visit_procedure_application_node(self, node: RacketProcedureApplicationNode) -> Any:
-        ...
+        """Visit a procedure application node.
+
+        :param node: A procedure node
+        :return: The result of the visitor visiting this node
+        """
 
     @abc.abstractmethod
     def visit_check_expect_node(self, node: RacketCheckExpectNode) -> Any:
-        ...
+        """Visit a check expect node.
+
+        :param node: A check expect node
+        :return: The result of the visitor visiting this node
+        """
 
     @abc.abstractmethod
     def visit_library_require_node(self, node: RacketLibraryRequireNode) -> Any:
-        ...
+        """Visit a library require node.
+
+        :param node: A library require node
+        :return: The result of the visitor visiting this node
+        """
 
 
 class RacketASTNode(metaclass=abc.ABCMeta):
@@ -62,7 +102,11 @@ class RacketASTNode(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def accept_visitor(self, visitor: RacketASTVisitor) -> Any:
-        pass
+        """Accept a Racket AST visitor.
+
+        :param visitor: A Racket AST visitor
+        :return: The result of the visitor visiting this node
+        """
 
 
 class RacketProgramNode(RacketASTNode):

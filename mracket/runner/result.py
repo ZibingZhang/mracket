@@ -34,38 +34,38 @@ class RunnerFailure(RunnerResult, Exception):
         self.dict = kwargs
 
 
-class OriginalResult:
+class UnmodifiedResult:
     """The result of the original program."""
 
     def __get__(self, obj: RunnerSuccess, objtype: type) -> ProgramExecutionResult | None:
-        if obj._original_result is None:
+        if obj._unmodified_result is None:
             return None
-        if inspect.isgenerator(obj._original_result):
-            obj._original_result = next(obj._original_result)
-        return cast(ProgramExecutionResult, obj._original_result)
+        if inspect.isgenerator(obj._unmodified_result):
+            obj._unmodified_result = next(obj._unmodified_result)
+        return cast(ProgramExecutionResult, obj._unmodified_result)
 
     def __set__(self, obj: RunnerSuccess, value: Generator[ProgramExecutionResult, None, None]) -> None:
-        obj._original_result = value
+        obj._unmodified_result = value
 
 
 class RunnerSuccess(RunnerResult):
     """A runner success."""
 
-    original_result = OriginalResult()
+    unmodified_result = UnmodifiedResult()
 
     def __init__(self, filename: str) -> None:
         self.filename = filename
         self.mutations: list[mutation.Mutation] = []
         self.mutant_results: Iterator[MutantExecutionResult] | None = None
 
-        self._original_result: Generator[ProgramExecutionResult, None, None] | ProgramExecutionResult | None = None
+        self._unmodified_result: Generator[ProgramExecutionResult, None, None] | ProgramExecutionResult | None = None
 
     def pprint(self) -> None:
-        if self.original_result is not None:
+        if self.unmodified_result is not None:
             print("===================================== ORIGINAL PROGRAM RESULT =====================================")
-            print(f"total: {self.original_result.total}")
-            print(f"    passed: {self.original_result.passed}")
-            print(f"    failed: {len(self.original_result.failures)}")
+            print(f"total: {self.unmodified_result.total}")
+            print(f"    passed: {self.unmodified_result.passed}")
+            print(f"    failed: {len(self.unmodified_result.failures)}")
 
         if self.mutant_results is not None:
             print("======================================== MUTATION RESULTS =========================================")

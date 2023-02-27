@@ -1,10 +1,12 @@
-"""Stringify a Racket AST."""
+"""Stringify a Racket abstract syntax tree."""
 from __future__ import annotations
 
 from mracket.reader import syntax
 
 
 class Stringifier(syntax.RacketASTVisitor):
+    """Stringifier of a Racket abstract syntax tree."""
+
     def visit_program_node(self, node: syntax.RacketProgramNode) -> str:
         return self.visit(node.reader_directive) + "\n" + "\n".join(map(self.visit, node.statements))
 

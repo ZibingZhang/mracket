@@ -14,18 +14,20 @@ from mracket.reader.stringify import Stringifier
 
 def test_read_program_succeeds() -> None:
     for source in test.inputs.read_contents():
-        tokens = Lexer(source).tokenize()
-        Parser(tokens).parse()
+        tokens = Lexer().tokenize(source)
+        Parser().parse(tokens)
 
 
 def test_read_stringify_idempotent() -> None:
+    lexer = Lexer()
+    parser = Parser()
     for source in test.inputs.read_contents():
-        tokens_0 = Lexer(source).tokenize()
-        tree_0 = Parser(tokens_0).parse()
+        tokens_0 = lexer.tokenize(source)
+        tree_0 = parser.parse(tokens_0)
         stringified_tree_0 = Stringifier().visit(tree_0)
 
-        tokens_1 = Lexer(stringified_tree_0).tokenize()
-        tree_1 = Parser(tokens_1).parse()
+        tokens_1 = lexer.tokenize(stringified_tree_0)
+        tree_1 = parser.parse(tokens_1)
         stringified_tree_1 = Stringifier().visit(tree_1)
 
         assert stringified_tree_0 == stringified_tree_1
@@ -38,8 +40,8 @@ def test_racket_output_unchanged() -> None:
 
         with open(file_name) as f:
             source = f.read()
-        tokens = Lexer(source).tokenize()
-        tree = Parser(tokens).parse()
+        tokens = Lexer().tokenize(source)
+        tree = Parser().parse(tokens)
         stringified_tree = Stringifier().visit(tree)
 
         with tempfile.NamedTemporaryFile(mode="w") as tf:

@@ -9,7 +9,10 @@ from mracket.reader import syntax
 
 
 class Mutator(syntax.RacketASTVisitor):
-    """A code mutator."""
+    """A code mutator.
+
+    For each node, it yields each mutation that each mutation generator generates.
+    """
 
     def __init__(self, generators: list[base.BaseMutationGenerator]) -> None:
         self.generators = generators

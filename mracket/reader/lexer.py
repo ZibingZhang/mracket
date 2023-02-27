@@ -1,4 +1,5 @@
 """A lexer for Racket programs."""
+# The lexer is based off of Racket's reader: https://docs.racket-lang.org/reference/reader.html
 from __future__ import annotations
 
 import dataclasses
@@ -180,6 +181,12 @@ class Token:
 
     @staticmethod
     def from_source(token_type: TokenType, source: str) -> Token:
+        """Create a non-positional Token.
+
+        :param token_type: The type of token
+        :param source: Racket source code of the token
+        :return: A non-positional Token
+        """
         return Token(type=token_type, offset=-1, lineno=-1, colno=-1, source=source)
 
 
@@ -192,19 +199,31 @@ DUMMY_RPAREN_TOKEN = Token(type=TokenType.RPAREN, offset=-1, lineno=-1, colno=-1
 class Lexer:
     """A lexer for Racket programs."""
 
-    def __init__(self, source: str):
-        self._source = self._truncated_source = source
+    def __init__(self):
+        self._truncated_source = ""
+        self._offset = -1
+        self._lineno = -1
+        self._colno = -1
+
+    def tokenize(self, source: str) -> list[Token]:
+        """Convert the source program into tokens.
+
+        :param source: Racket source code
+        :return: List of tokens
+        """
+        return list(self.lazy_tokenize(source))
+
+    def lazy_tokenize(self, source: str) -> Generator[Token, None, None]:
+        """Convert the source program into tokens.
+
+        :param source: Racket source code
+        :return: Generator of tokens
+        """
+        self._truncated_source = source
         self._offset = 0
         self._lineno = 1
         self._colno = 1
 
-    def tokenize(self) -> list[Token]:
-        """Convert the source program into tokens."""
-        return list(self.lazy_tokenize())
-
-    def lazy_tokenize(self) -> Generator[Token, None, None]:
-        """Convert the source program into tokens."""
-        self._truncated_source = self._source
         while (token := self._next_token()) is not None:
             yield token
         yield EOF_TOKEN

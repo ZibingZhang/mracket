@@ -26,15 +26,13 @@ LIBRARY_REQUIRE = re.compile(r"require")
 class Parser:
     """A parser for Racket programs."""
 
-    def __init__(self, tokens: list[lexer.Token]) -> None:
-        self._tokens = self._token_stream = tokens
+    def __init__(self) -> None:
+        self._token_stream: list[lexer.Token] = []
         self._current_token = lexer.EOF_TOKEN
 
-    def parse(self) -> syntax.RacketProgramNode:
-        """Convert the tokens into an AST."""
-
-        # reset stream
-        self._token_stream = self._tokens.copy()
+    def parse(self, tokens: list[lexer.Token]) -> syntax.RacketProgramNode:
+        """Convert the tokens into an abstract syntax tree."""
+        self._token_stream = tokens.copy()
         self._current_token = self._token_stream.pop(0)
 
         statements = []
@@ -46,9 +44,9 @@ class Parser:
                 statements.append(self._statement())
 
         if reader_directive is None:
-            raise errors.ExpectedReaderDirective(self._tokens[-1])
+            raise errors.ExpectedReaderDirective(lexer.EOF_TOKEN)
 
-        return syntax.RacketProgramNode(token=self._tokens[0], reader_directive=reader_directive, statements=statements)
+        return syntax.RacketProgramNode(token=tokens[0], reader_directive=reader_directive, statements=statements)
 
     def _reader_directive(self) -> syntax.RacketReaderDirectiveNode:
         node = syntax.RacketReaderDirectiveNode(token=self._current_token)

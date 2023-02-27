@@ -45,36 +45,36 @@ class Runner:
         """Evaluate the program and its mutants."""
         self.check_file_exists(self.filename)
         program = self.build_syntax_tree(self.filename)
-        self.success.original_result = self.run_original(program)
+        self.success.unmodified_result = self.run_unmodified(program)
         self.success.mutations = self.generate_mutations(self.mutator, program)
         mutation_mutants = self.apply_mutations(program, self.success.mutations)
         self.success.mutant_results = self.run_mutants(mutation_mutants)
 
     @staticmethod
     def build_syntax_tree(filename) -> syntax.RacketProgramNode:
-        """Build an AST of the Racket program.
+        """Build an abstract syntax tree of the Racket program.
 
         :param filename: A Racket program filename
-        :return: A program AST
+        :return: A program abstract syntax tree
         """
         with open(filename) as f:
             source = f.read()
         if not source.startswith(DRRACKET_PREFIX):
             raise result.RunnerFailure(reason=result.Reason.NOT_DRRACKETY)
-        tokens = lexer.Lexer(source).tokenize()
-        program = parser.Parser(tokens).parse()
+        tokens = lexer.Lexer().tokenize(source)
+        program = parser.Parser().parse(tokens)
         return program
 
     @staticmethod
-    def run_original(program: syntax.RacketProgramNode) -> Generator[result.ProgramExecutionResult, None, None]:
+    def run_unmodified(program: syntax.RacketProgramNode) -> Generator[result.ProgramExecutionResult, None, None]:
         """Run the original program.
 
-        The source code is not being run but rather the stringified program AST. The
-        reason is that we want the positions of the errors, if any exist, to be the same
+        The source code is not being run but rather the stringified program. The reason
+        is that we want the positions of the errors, if any exist, to be the same
         between the original and the mutants.
 
-        :param program: A Racket program AST
-        :return: Result of running the original program
+        :param program: A Racket program
+        :return: Result of running the unmodified program
         """
         filename = Runner._random_filename()
         Runner._create_file(filename, stringify.Stringifier().visit(program))
@@ -106,7 +106,7 @@ class Runner:
 
         :param program: A program to mutate
         :param mutations: Iterator of mutations to apply to the program
-        :return: A generator of mutation-mutant pairs
+        :return: Generator of mutation-mutant pairs
         """
         mutation_applier = applier.MutationApplier(program, list(mutations))
         mutation_mutants = mutation_applier.apply_mutations()
@@ -119,7 +119,7 @@ class Runner:
         """Run the mutants.
 
         :param mutation_mutants: An iterator of mutation-mutant pairs
-        :return: A generator of mutant execution results
+        :return: Generator of mutant execution results
         """
         for batch in Runner._batched(mutation_mutants):
             filenames = [Runner._random_filename() for _ in range(Runner.BATCH_SIZE)]

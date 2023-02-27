@@ -9,6 +9,13 @@ from mracket.reader import stringify, syntax
 
 
 class MutationApplier(syntax.RacketASTVisitor):
+    """Applies mutations to the program.
+
+    For each node of the program, if there exists a mutation where that node is
+    replaced, it replaces the node and yields a stringified version of the entire
+    program with the updated node. The node is then swapped back.
+    """
+
     stringifier: stringify.Stringifier = stringify.Stringifier()
 
     def __init__(self, program: syntax.RacketProgramNode, mutations: list[mutation.Mutation]):

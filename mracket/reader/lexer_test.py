@@ -41,7 +41,7 @@ from mracket.reader.lexer import Lexer, TokenType
     ],
 )
 def test_tokenize_by_type(token_type: TokenType, source: str, strings: list[str]) -> None:
-    tokens = Lexer(source).tokenize()
+    tokens = Lexer().tokenize(source)
     assert len(tokens) == len(strings) + 1
     for token, string in zip(tokens, strings):
         assert token.source == string
@@ -65,14 +65,14 @@ def test_tokenize_by_type(token_type: TokenType, source: str, strings: list[str]
     ],
 )
 def test_tokenize_special_characater(special_character: str) -> None:
-    tokens = Lexer(rf"#\{special_character}").tokenize()
+    tokens = Lexer().tokenize(rf"#\{special_character}")
     assert len(tokens) - 1 == 1
     assert tokens[0].source == rf"#\{special_character}"
 
 
 @pytest.mark.parametrize("source,strings", [[r"#\49", [r"#\4", "9"]]])
 def test_tokenize_adjacent_tokens(source, strings: list[str]) -> None:
-    tokens = Lexer(source).tokenize()
+    tokens = Lexer().tokenize(source)
     assert len(tokens) == len(strings) + 1
     for token, source in zip(tokens, strings):
         assert token.source == source
@@ -80,7 +80,7 @@ def test_tokenize_adjacent_tokens(source, strings: list[str]) -> None:
 
 @pytest.mark.parametrize("source,strings", [[r'1"a"', ["1", '"a"']], [r"1)", ["1", ")"]]])
 def test_tokenize_adjacent_to_number_1(source, strings: list[str]) -> None:
-    tokens = Lexer(source).tokenize()
+    tokens = Lexer().tokenize(source)
     assert len(tokens) == len(strings) + 1
     for token, source in zip(tokens, strings):
         if source == "1":
@@ -91,4 +91,4 @@ def test_tokenize_adjacent_to_number_1(source, strings: list[str]) -> None:
 @pytest.mark.parametrize("source", [r"#\ab", r"#\12"])
 def test_tokenize_invalid_token(source) -> None:
     with pytest.raises(LexerError):
-        Lexer(source).tokenize()
+        Lexer().tokenize(source)
