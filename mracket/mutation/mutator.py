@@ -9,6 +9,8 @@ from mracket.reader import syntax
 
 
 class Mutator(syntax.RacketASTVisitor):
+    """A code mutator."""
+
     def __init__(self, generators: list[base.BaseMutationGenerator]) -> None:
         self.generators = generators
 

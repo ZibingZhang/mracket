@@ -44,11 +44,12 @@ def test_racket_output_unchanged() -> None:
 
         with tempfile.NamedTemporaryFile(mode="w") as tf:
             tf.write(stringified_tree)
+            tf.seek(0)
 
-        transformed_process = subprocess.Popen(["racket", tf.name], stdout=subprocess.PIPE)
+            transformed_process = subprocess.Popen(["racket", tf.name], stdout=subprocess.PIPE)
 
-        (original_output, original_error) = original_process.communicate()
-        (transformed_output, transformed_error) = transformed_process.communicate()
+            (original_output, original_error) = original_process.communicate()
+            (transformed_output, transformed_error) = transformed_process.communicate()
 
         assert original_process.returncode == transformed_process.returncode
         if original_error is None:

@@ -4,8 +4,10 @@ from __future__ import annotations
 import abc
 import dataclasses
 import enum
+import inspect
 import re
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
+from typing import cast
 
 from mracket import mutation
 
@@ -32,20 +34,38 @@ class RunnerFailure(RunnerResult, Exception):
         self.dict = kwargs
 
 
+class OriginalResult:
+    """The result of the original program."""
+
+    def __get__(self, obj: RunnerSuccess, objtype: type) -> ProgramExecutionResult | None:
+        if obj._original_result is None:
+            return None
+        if inspect.isgenerator(obj._original_result):
+            obj._original_result = next(obj._original_result)
+        return cast(ProgramExecutionResult, obj._original_result)
+
+    def __set__(self, obj: RunnerSuccess, value: Generator[ProgramExecutionResult, None, None]) -> None:
+        obj._original_result = value
+
+
 class RunnerSuccess(RunnerResult):
     """A runner success."""
 
+    original_result = OriginalResult()
+
     def __init__(self, filename: str) -> None:
         self.filename = filename
-        self.base_result: ProgramResult | None = None
-        self.mutant_results: Iterator[MutantResult] | None = None
+        self.mutations: list[mutation.Mutation] = []
+        self.mutant_results: Iterator[MutantExecutionResult] | None = None
+
+        self._original_result: Generator[ProgramExecutionResult, None, None] | ProgramExecutionResult | None = None
 
     def pprint(self) -> None:
-        if self.base_result is not None:
+        if self.original_result is not None:
             print("===================================== ORIGINAL PROGRAM RESULT =====================================")
-            print(f"total: {self.base_result.total}")
-            print(f"    passed: {self.base_result.passed}")
-            print(f"    failed: {len(self.base_result.failures)}")
+            print(f"total: {self.original_result.total}")
+            print(f"    passed: {self.original_result.passed}")
+            print(f"    failed: {len(self.original_result.failures)}")
 
         if self.mutant_results is not None:
             print("======================================== MUTATION RESULTS =========================================")
@@ -57,7 +77,7 @@ class RunnerSuccess(RunnerResult):
                 print(f"    failed: {len(result.failures)}")
 
 
-class ProgramResult:
+class ProgramExecutionResult:
     """A Racket program result."""
 
     def __init__(self, stdout: bytes) -> None:
@@ -103,7 +123,7 @@ class ProgramResult:
         return self.passed + len(self.failures)
 
 
-class MutantResult(ProgramResult):
+class MutantExecutionResult(ProgramExecutionResult):
     """A mutant Racket program result."""
 
     def __init__(self, stdout: bytes, mut: mutation.Mutation) -> None:
@@ -113,6 +133,8 @@ class MutantResult(ProgramResult):
 
 @dataclasses.dataclass
 class TestFailure:
+    """A test-case failure."""
+
     actual: str
     expected: str
     lineno: int
