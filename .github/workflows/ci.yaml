@@ -31,7 +31,7 @@ jobs:
           variant: "CS"
           version: "8.8"
       - name: Test
-        run: python -m pytest -vs mracket
+        run: python -m pytest -vvs -n auto mracket
 
   black:
     runs-on: ubuntu-latest

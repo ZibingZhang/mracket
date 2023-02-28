@@ -123,7 +123,7 @@ ESCAPED_SYMBOL_CHARACTERS = fr"(\\{EXTENDED_SYMBOL_CHARACTER}|\|{EXTENDED_SYMBOL
 ABBREVIATED_BOOLEAN = re.compile(r"#[TtFf]")
 BOOLEAN = re.compile(r"#(true|false)")
 CHARACTER = re.compile(fr"#\\(null?|backspace|tab|newline|linefeed|vtab|page|return|space|rubout|{DIGIT_8}{{3}}|u{DIGIT_16}{{1,4}}|U{DIGIT_16}{{1,8}}|[a-zA-Z](?![a-zA-Z])|[0-7](?![0-7])|[^a-zA-Z0-7])")
-DELIMITER = re.compile(r"[()[\]{}'`,]")
+DELIMITER = re.compile(r"(,@|[()[\]{}'`,])")
 LINE_COMMENT = re.compile(r";.*")
 NUMBER = re.compile(fr"({GENERAL_NUMBER}|{LEADING_EXACTNESS_NUMBER})(?=$|[()[\]{{}}'`,\"\s])", re.IGNORECASE)
 READER_DIRECTIVE = re.compile(r"#(lang|reader).*")
@@ -145,11 +145,12 @@ class TokenType(enum.Enum):
     NUMBER = "NUMBER"
     QUASIQUOTE = "QUASIQUOTE"
     QUOTE = "QUOTE"
-    READER_DIRECTIVE = "READER_DIRECTIVE"
+    READER_DIRECTIVE = "READER DIRECTIVE"
     RPAREN = "RPAREN"
     STRING = "STRING"
     SYMBOL = "SYMBOL"
     UNQUOTE = "UNQUOTE"
+    UNQUOTE_SPLICING = "UNQUOTE SPLICING"
     WHITESPACE = "WHITESPACE"
 
 
@@ -176,6 +177,7 @@ class Token:
     source: str = ""
 
     def __post_init__(self):
+        assert self.type is not TokenType.DELIMITER
         if self.type is not TokenType.EOF:
             assert self.source != ""
 
@@ -266,6 +268,8 @@ class Lexer:
                 token_type = TokenType.QUOTE
             elif token_source in ",":
                 token_type = TokenType.UNQUOTE
+            elif token_source in ",@":
+                token_type = TokenType.UNQUOTE_SPLICING
 
         token = Token(type=token_type, offset=self._offset, lineno=self._lineno, colno=self._colno, source=token_source)
         self._advance_position(token_source)

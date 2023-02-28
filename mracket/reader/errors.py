@@ -22,10 +22,6 @@ class LexerError(ReaderError, metaclass=abc.ABCMeta):
         self.offset = offset
 
 
-class UnexpectedEOFInStringError(LexerError):
-    """Unexpected end-of-file while reading a string."""
-
-
 class UnrecognizedTokenError(LexerError):
     """Unrecognized token."""
 

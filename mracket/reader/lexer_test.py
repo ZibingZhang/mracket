@@ -70,7 +70,13 @@ def test_tokenize_special_characater(special_character: str) -> None:
     assert tokens[0].source == rf"#\{special_character}"
 
 
-@pytest.mark.parametrize("source,strings", [[r"#\49", [r"#\4", "9"]]])
+@pytest.mark.parametrize(
+    "source,strings",
+    [
+        [r"#\49", [r"#\4", "9"]],
+        ['#t"a"', ["#t", '"a"']],
+    ],
+)
 def test_tokenize_adjacent_tokens(source, strings: list[str]) -> None:
     tokens = Lexer().tokenize(source)
     assert len(tokens) == len(strings) + 1
@@ -78,7 +84,13 @@ def test_tokenize_adjacent_tokens(source, strings: list[str]) -> None:
         assert token.source == source
 
 
-@pytest.mark.parametrize("source,strings", [[r'1"a"', ["1", '"a"']], [r"1)", ["1", ")"]]])
+@pytest.mark.parametrize(
+    "source,strings",
+    [
+        [r'1"a"', ["1", '"a"']],
+        [r"1)", ["1", ")"]],
+    ],
+)
 def test_tokenize_adjacent_to_number_1(source, strings: list[str]) -> None:
     tokens = Lexer().tokenize(source)
     assert len(tokens) == len(strings) + 1
@@ -88,7 +100,13 @@ def test_tokenize_adjacent_to_number_1(source, strings: list[str]) -> None:
         assert token.source == source
 
 
-@pytest.mark.parametrize("source", [r"#\ab", r"#\12"])
+@pytest.mark.parametrize(
+    "source",
+    [
+        r"#\ab",
+        r"#\12",
+    ],
+)
 def test_tokenize_invalid_token(source) -> None:
     with pytest.raises(LexerError):
         Lexer().tokenize(source)

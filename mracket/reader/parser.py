@@ -17,6 +17,18 @@ LITERAL_TOKEN_TYPES = {
     lexer.TokenType.NUMBER,
     lexer.TokenType.STRING,
 }
+QUOTE_RELATED_TOKEN_TYPES = {
+    lexer.TokenType.QUASIQUOTE,
+    lexer.TokenType.QUOTE,
+    lexer.TokenType.UNQUOTE,
+    lexer.TokenType.UNQUOTE_SPLICING,
+}
+QUOTE_RELATED_TOKEN_TYPE_NAME = {
+    lexer.TokenType.QUASIQUOTE: "quasiquote",
+    lexer.TokenType.QUOTE: "quote",
+    lexer.TokenType.UNQUOTE: "unquote",
+    lexer.TokenType.UNQUOTE_SPLICING: "unquote-splicing",
+}
 
 DEFINITION = re.compile(r"define(-struct)?")
 TEST_CASE = re.compile(r"check-(expect|random|within|member-of|range|satisfied|error)")
@@ -65,7 +77,7 @@ class Parser:
         if self._current_token.type is lexer.TokenType.RPAREN:
             raise errors.UnexpectedRightParenthesisError(self._current_token)
 
-        if self._is_defintion_statement():
+        if self._is_definition_statement():
             return self._definition()
         if self._is_test_case_statement():
             return self._test_case()
@@ -131,11 +143,12 @@ class Parser:
     def _expression(self) -> syntax.RacketExpressionNode:
         token_type = self._current_token.type
         if token_type in LITERAL_TOKEN_TYPES:
-            return syntax.RacketLiteralNode(token=self._eat(token_type))
+            return self._literal()
         elif token_type is lexer.TokenType.SYMBOL:
             return self._name()
 
-        # TODO: handle other cases, such as quotes
+        if token_type in QUOTE_RELATED_TOKEN_TYPES:
+            return self._desugar_quote_related()
 
         if token_type is not lexer.TokenType.LPAREN:
             raise errors.IllegalStateError(str(self._current_token))
@@ -153,8 +166,32 @@ class Parser:
 
         return self._procedure_application()
 
+    def _literal(self) -> syntax.RacketLiteralNode:
+        return syntax.RacketLiteralNode(token=self._eat(self._current_token.type))
+
     def _name(self) -> syntax.RacketNameNode:
         return syntax.RacketNameNode(token=self._eat(lexer.TokenType.SYMBOL))
+
+    def _desugar_quote_related(self) -> syntax.RacketProcedureApplicationNode:
+        quote_related_token_type = self._current_token.type
+        self._eat(self._current_token.type)
+        expression = self._expression()
+        return syntax.RacketProcedureApplicationNode(
+            lparen=lexer.DUMMY_LPAREN_TOKEN,
+            rparen=lexer.DUMMY_RPAREN_TOKEN,
+            expressions=[
+                syntax.RacketNameNode(
+                    token=lexer.Token(
+                        type=quote_related_token_type,
+                        offset=-1,
+                        lineno=-1,
+                        colno=-1,
+                        source=QUOTE_RELATED_TOKEN_TYPE_NAME[quote_related_token_type],
+                    )
+                ),
+                expression,
+            ],
+        )
 
     def _cond(self) -> syntax.RacketCondNode:
         lparen = self._eat(lexer.TokenType.LPAREN)
@@ -169,6 +206,7 @@ class Parser:
         return syntax.RacketCondNode(lparen=lparen, rparen=rparen, branches=branches)
 
     def _if(self) -> syntax.RacketCondNode:
+        # desugar (if expr expr expr) to (cond (expr expr) (else expr))
         lparen = self._eat(lexer.TokenType.LPAREN)
         self._eat(lexer.TokenType.SYMBOL)
         condition = self._expression()
@@ -270,7 +308,7 @@ class Parser:
         self._current_token = self._token_stream.pop(0)
         return previous_token
 
-    def _is_defintion_statement(self) -> str | Literal[False]:
+    def _is_definition_statement(self) -> str | Literal[False]:
         return self._is_special_statement(DEFINITION)
 
     def _is_test_case_statement(self) -> str | Literal[False]:

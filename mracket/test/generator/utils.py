@@ -16,6 +16,6 @@ def apply_generator(generator: base.BaseMutationGenerator, source: str) -> Gener
     :param source: Racket source code
     :return: Generator of mutations
     """
-    tree = parser.Parser().parse(lexer.Lexer().tokenize(f"#lang racket\n{source}"))
+    program = parser.Parser().parse(lexer.Lexer().tokenize(f"#lang racket\n{source}"))
     mutator_ = mutator.Mutator(generators=[generator])
-    return mutator_.visit(tree)
+    return mutator_.visit(program)

@@ -1,7 +1,7 @@
 #!/bin/bash
-FLAGS=(-s -vv -n auto)
+FLAGS=(-s -vv)
 
 set -eoux pipefail
 
 python -m pytest mracket "${FLAGS[@]}" -m "not slow"
-python -m pytest mracket "${FLAGS[@]}" -m "slow"
+python -m pytest mracket "${FLAGS[@]}" -n auto -m "slow"

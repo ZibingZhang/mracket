@@ -1,2 +1,3 @@
 #lang racket
-1
+
+1 "a" #\a

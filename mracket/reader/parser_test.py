@@ -27,5 +27,5 @@ from mracket.reader import lexer, parser, syntax
 )
 def test_parse_node_type(typ: type, source: str) -> None:
     tokens = lexer.Lexer().tokenize(f"#lang racket\n{source}")
-    tree = parser.Parser().parse(tokens)
-    assert isinstance(tree.statements[0], typ)
+    program = parser.Parser().parse(tokens)
+    assert isinstance(program.statements[0], typ)

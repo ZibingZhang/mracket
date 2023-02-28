@@ -14,10 +14,10 @@ class Stringifier(syntax.RacketASTVisitor):
         return node.token.source
 
     def visit_name_definition_node(self, node: syntax.RacketNameDefinitionNode) -> str:
-        return f"(define {node.name.token.source} {self.visit(node.expression)})"
+        return f"(define {self.visit(node.name)} {self.visit(node.expression)})"
 
     def visit_structure_definition_node(self, node: syntax.RacketStructureDefinitionNode) -> str:
-        return f"(define-struct {node.name} ({' '.join(map(self.visit, node.fields))}))"
+        return f"(define-struct {self.visit(node.name)} ({' '.join(map(self.visit, node.fields))}))"
 
     def visit_literal_node(self, node: syntax.RacketLiteralNode) -> str:
         return node.token.source
