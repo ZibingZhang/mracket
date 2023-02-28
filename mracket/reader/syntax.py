@@ -30,10 +30,10 @@ class RacketASTVisitor(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def visit_constant_definition_node(self, node: RacketConstantDefinitionNode) -> Any:
-        """Visit a constant definition node.
+    def visit_name_definition_node(self, node: RacketNameDefinitionNode) -> Any:
+        """Visit a name definition node.
 
-        :param node: A constant definition node
+        :param node: A name definition node
         :return: The result of the visitor visiting this node
         """
 
@@ -74,6 +74,14 @@ class RacketASTVisitor(metaclass=abc.ABCMeta):
         """Visit a lambda node.
 
         :param node: A lambda node
+        :return: The result of the visitor visiting this node
+        """
+
+    @abc.abstractmethod
+    def visit_local_node(self, node: RacketLocalNode) -> Any:
+        """Visit a local node.
+
+        :param node: A local node
         :return: The result of the visitor visiting this node
         """
 
@@ -152,8 +160,8 @@ class RacketDefinitionNode(RacketStatementNode, metaclass=abc.ABCMeta):
         self.name = name
 
 
-class RacketConstantDefinitionNode(RacketDefinitionNode):
-    """A constant definition node."""
+class RacketNameDefinitionNode(RacketDefinitionNode):
+    """A name definition node."""
 
     def __init__(
         self, lparen: lexer.Token, rparen: lexer.Token, name: RacketNameNode, expression: RacketExpressionNode
@@ -162,7 +170,7 @@ class RacketConstantDefinitionNode(RacketDefinitionNode):
         self.expression = expression
 
     def accept_visitor(self, visitor: RacketASTVisitor) -> Any:
-        return visitor.visit_constant_definition_node(self)
+        return visitor.visit_name_definition_node(self)
 
 
 class RacketStructureDefinitionNode(RacketDefinitionNode):
@@ -238,6 +246,24 @@ class RacketLambdaNode(RacketSExprNode):
 
     def accept_visitor(self, visitor: RacketASTVisitor) -> Any:
         return visitor.visit_lambda_node(self)
+
+
+class RacketLocalNode(RacketSExprNode):
+    """A local node."""
+
+    def __init__(
+        self,
+        lparen: lexer.Token,
+        rparen: lexer.Token,
+        definitions: list[RacketDefinitionNode],
+        expression: RacketExpressionNode,
+    ) -> None:
+        super().__init__(lparen, rparen)
+        self.definitions = definitions
+        self.expression = expression
+
+    def accept_visitor(self, visitor: RacketASTVisitor) -> Any:
+        return visitor.visit_local_node(self)
 
 
 class RacketProcedureApplicationNode(RacketSExprNode):

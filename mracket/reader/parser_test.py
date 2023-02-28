@@ -9,8 +9,8 @@ from mracket.reader import lexer, parser, syntax
 @pytest.mark.parametrize(
     "typ, source",
     [
-        [syntax.RacketConstantDefinitionNode, "(define x 1)"],
-        [syntax.RacketConstantDefinitionNode, "(define (x) 1)"],
+        [syntax.RacketNameDefinitionNode, "(define x 1)"],
+        [syntax.RacketNameDefinitionNode, "(define (x) 1)"],
         [syntax.RacketStructureDefinitionNode, "(define-struct posn [x y])"],
         [syntax.RacketLiteralNode, "#t"],
         [syntax.RacketLiteralNode, r"#\a"],
@@ -18,6 +18,8 @@ from mracket.reader import lexer, parser, syntax
         [syntax.RacketLiteralNode, '"Hello, World!"'],
         [syntax.RacketNameNode, "identity"],
         [syntax.RacketCondNode, "(cond [#t 1])"],
+        [syntax.RacketLambdaNode, "(lambda (x) 1)"],
+        [syntax.RacketLocalNode, "(local ((define x 1)) x)"],
         [syntax.RacketLibraryRequireNode, "(require 2htdp/universe)"],
     ],
 )

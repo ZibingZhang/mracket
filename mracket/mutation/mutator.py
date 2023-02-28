@@ -36,8 +36,8 @@ class Mutator(syntax.RacketASTVisitor):
         return
         yield
 
-    def visit_constant_definition_node(
-        self, node: syntax.RacketConstantDefinitionNode
+    def visit_name_definition_node(
+        self, node: syntax.RacketNameDefinitionNode
     ) -> Generator[mutation.Mutation, None, None]:
         for child_node in (node.name, node.expression):
             for mut in self.visit(child_node):
@@ -65,6 +65,11 @@ class Mutator(syntax.RacketASTVisitor):
 
     def visit_lambda_node(self, node: syntax.RacketLambdaNode) -> Generator[mutation.Mutation, None, None]:
         for child_node in (*node.variables, node.expression):
+            for mut in self.visit(child_node):
+                yield mut
+
+    def visit_local_node(self, node: syntax.RacketLocalNode) -> Generator[mutation.Mutation, None, None]:
+        for child_node in (*node.definitions, node.expression):
             for mut in self.visit(child_node):
                 yield mut
 

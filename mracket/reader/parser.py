@@ -61,59 +61,68 @@ class Parser:
         if self._current_token.type is lexer.TokenType.RPAREN:
             raise errors.UnexpectedRightParenthesisError(self._current_token)
 
-        if definition_type := self._is_defintion_statement():
-            return self._definition(definition_type)
+        if self._is_defintion_statement():
+            return self._definition()
         if test_case_type := self._is_test_case_statement():
             return self._test_case(test_case_type)
         if self._is_library_require_statement():
             return self._library_require()
         return self._expression()
 
-    def _definition(self, definition_type: str) -> syntax.RacketDefinitionNode:
-        lparen = self._eat(lexer.TokenType.LPAREN)
-        self._eat(lexer.TokenType.SYMBOL)
-        if definition_type == "define":
-            if self._current_token.type is lexer.TokenType.LPAREN:
-                # desugar (define (name variable ...) expr) to (define name (lambda (variable ...) expr)
-                self._eat(lexer.TokenType.LPAREN)
-                name = self._name()
-                variables = []
-                while self._current_token.type is not lexer.TokenType.RPAREN:
-                    variables.append(self._name())
-                self._eat(lexer.TokenType.RPAREN)
-                expression = self._expression()
-                rparen = self._eat(lexer.TokenType.RPAREN)
-                return syntax.RacketConstantDefinitionNode(
-                    lparen=lparen,
-                    rparen=rparen,
-                    name=name,
-                    expression=syntax.RacketLambdaNode(
-                        lparen=lexer.DUMMY_LPAREN_TOKEN,
-                        rparen=lexer.DUMMY_RPAREN_TOKEN,
-                        variables=variables,
-                        expression=expression,
-                    ),
-                )
-            elif self._current_token.type is lexer.TokenType.SYMBOL:
-                name = self._name()
-                expression = self._expression()
-                rparen = self._eat(lexer.TokenType.RPAREN)
-                return syntax.RacketConstantDefinitionNode(
-                    lparen=lparen, rparen=rparen, name=name, expression=expression
-                )
-            else:
-                raise errors.IllegalStateError()
-        elif definition_type == "define-struct":
-            name = self._name()
-            self._eat(lexer.TokenType.LPAREN)
-            fields = []
-            while self._current_token.type is not lexer.TokenType.RPAREN:
-                fields.append(self._name())
-            self._eat(lexer.TokenType.RPAREN)
-            rparen = self._eat(lexer.TokenType.RPAREN)
-            return syntax.RacketStructureDefinitionNode(lparen=lparen, rparen=rparen, name=name, fields=fields)
+    def _definition(self) -> syntax.RacketDefinitionNode:
+        if self._is_name_definition():
+            return self._name_definition()
+        elif self._is_structure_definition():
+            return self._structure_definition()
         else:
             raise errors.IllegalStateError()
+
+    def _name_definition(self) -> syntax.RacketNameDefinitionNode:
+        lparen = self._eat(lexer.TokenType.LPAREN)
+        self._eat(lexer.TokenType.SYMBOL)
+        if self._current_token.type is lexer.TokenType.LPAREN:
+            return self._desugar_function_definition(lparen)
+        elif self._current_token.type is lexer.TokenType.SYMBOL:
+            name = self._name()
+            expression = self._expression()
+            rparen = self._eat(lexer.TokenType.RPAREN)
+            return syntax.RacketNameDefinitionNode(lparen=lparen, rparen=rparen, name=name, expression=expression)
+        else:
+            raise errors.IllegalStateError()
+
+    def _desugar_function_definition(self, lparen: lexer.Token) -> syntax.RacketNameDefinitionNode:
+        # desugar (define (name variable ...) expr) to (define name (lambda (variable ...) expr)
+        self._eat(lexer.TokenType.LPAREN)
+        name = self._name()
+        variables = []
+        while self._current_token.type is not lexer.TokenType.RPAREN:
+            variables.append(self._name())
+        self._eat(lexer.TokenType.RPAREN)
+        expression = self._expression()
+        rparen = self._eat(lexer.TokenType.RPAREN)
+        return syntax.RacketNameDefinitionNode(
+            lparen=lparen,
+            rparen=rparen,
+            name=name,
+            expression=syntax.RacketLambdaNode(
+                lparen=lexer.DUMMY_LPAREN_TOKEN,
+                rparen=lexer.DUMMY_RPAREN_TOKEN,
+                variables=variables,
+                expression=expression,
+            ),
+        )
+
+    def _structure_definition(self) -> syntax.RacketStructureDefinitionNode:
+        lparen = self._eat(lexer.TokenType.LPAREN)
+        self._eat(lexer.TokenType.SYMBOL)
+        name = self._name()
+        self._eat(lexer.TokenType.LPAREN)
+        fields = []
+        while self._current_token.type is not lexer.TokenType.RPAREN:
+            fields.append(self._name())
+        self._eat(lexer.TokenType.RPAREN)
+        rparen = self._eat(lexer.TokenType.RPAREN)
+        return syntax.RacketStructureDefinitionNode(lparen=lparen, rparen=rparen, name=name, fields=fields)
 
     def _expression(self) -> syntax.RacketExpressionNode:
         token_type = self._current_token.type
@@ -122,9 +131,6 @@ class Parser:
         elif token_type is lexer.TokenType.SYMBOL:
             return self._name()
 
-        if token_type is lexer.TokenType.EOF:
-            raise ValueError
-
         # TODO: handle other cases, such as quotes
 
         if token_type is not lexer.TokenType.LPAREN:
@@ -132,6 +138,10 @@ class Parser:
 
         if self._is_cond_expression():
             return self._cond()
+        if self._is_lambda_expression():
+            return self._lambda()
+        if self._is_local_expression():
+            return self._local()
 
         return self._procedure_application()
 
@@ -148,7 +158,31 @@ class Parser:
             self._eat(lexer.TokenType.RPAREN)
             branches.append(branch)
         rparen = self._eat(lexer.TokenType.RPAREN)
-        return syntax.RacketCondNode(lparen, rparen, branches)
+        return syntax.RacketCondNode(lparen=lparen, rparen=rparen, branches=branches)
+
+    def _lambda(self) -> syntax.RacketLambdaNode:
+        lparen = self._eat(lexer.TokenType.LPAREN)
+        self._eat(lexer.TokenType.SYMBOL)
+        self._eat(lexer.TokenType.LPAREN)
+        variables = []
+        while self._current_token.type is not lexer.TokenType.RPAREN:
+            variables.append(self._name())
+        self._eat(lexer.TokenType.RPAREN)
+        expression = self._expression()
+        rparen = self._eat(lexer.TokenType.RPAREN)
+        return syntax.RacketLambdaNode(lparen=lparen, rparen=rparen, variables=variables, expression=expression)
+
+    def _local(self) -> syntax.RacketLocalNode:
+        lparen = self._eat(lexer.TokenType.LPAREN)
+        self._eat(lexer.TokenType.SYMBOL)
+        self._eat(lexer.TokenType.LPAREN)
+        definitions = []
+        while self._current_token.type is not lexer.TokenType.RPAREN:
+            definitions.append(self._definition())
+        self._eat(lexer.TokenType.RPAREN)
+        expression = self._expression()
+        rparen = self._eat(lexer.TokenType.RPAREN)
+        return syntax.RacketLocalNode(lparen=lparen, rparen=rparen, definitions=definitions, expression=expression)
 
     def _procedure_application(self) -> syntax.RacketProcedureApplicationNode:
         lparen = self._eat(lexer.TokenType.LPAREN)
@@ -209,6 +243,22 @@ class Parser:
             return next_token.source
         return False
 
+    def _is_name_definition(self) -> bool:
+        return self._token_stream[0].source == "define"
+
+    def _is_structure_definition(self) -> bool:
+        return self._token_stream[0].source == "define-struct"
+
     def _is_cond_expression(self) -> bool:
+        return self._is_special_expression("cond")
+
+    def _is_lambda_expression(self) -> bool:
         next_token = self._token_stream[0]
-        return next_token.type is lexer.TokenType.SYMBOL and next_token.source == "cond"
+        return next_token.type is lexer.TokenType.SYMBOL and next_token.source in ("\u03bb", "lambda")
+
+    def _is_local_expression(self) -> bool:
+        return self._is_special_expression("local")
+
+    def _is_special_expression(self, name: str) -> bool:
+        next_token = self._token_stream[0]
+        return next_token.type is lexer.TokenType.SYMBOL and next_token.source == name

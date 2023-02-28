@@ -13,7 +13,7 @@ class Stringifier(syntax.RacketASTVisitor):
     def visit_reader_directive_node(self, node: syntax.RacketReaderDirectiveNode) -> str:
         return node.token.source
 
-    def visit_constant_definition_node(self, node: syntax.RacketConstantDefinitionNode) -> str:
+    def visit_name_definition_node(self, node: syntax.RacketNameDefinitionNode) -> str:
         return f"(define {node.name.token.source} {self.visit(node.expression)})"
 
     def visit_structure_definition_node(self, node: syntax.RacketStructureDefinitionNode) -> str:
@@ -26,11 +26,16 @@ class Stringifier(syntax.RacketASTVisitor):
         return node.token.source
 
     def visit_cond_node(self, node: syntax.RacketCondNode) -> str:
-        branches = " ".join(f"({self.visit(condition)} {self.visit(expression)})" for condition, expression in node.branches)
+        branches = " ".join(
+            f"({self.visit(condition)} {self.visit(expression)})" for condition, expression in node.branches
+        )
         return f"(cond {branches})"
 
     def visit_lambda_node(self, node: syntax.RacketLambdaNode) -> str:
         return f"(lambda ({' '.join(map(self.visit, node.variables))}) {self.visit(node.expression)})"
+
+    def visit_local_node(self, node: syntax.RacketLocalNode) -> str:
+        return f"(local ({' '.join(map(self.visit, node.definitions))}) {self.visit(node.expression)})"
 
     def visit_procedure_application_node(self, node: syntax.RacketProcedureApplicationNode) -> str:
         return f"({' '.join(map(self.visit, node.expressions))})"
