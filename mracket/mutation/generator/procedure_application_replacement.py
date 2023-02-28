@@ -1,18 +1,28 @@
-"""A procedure replacement mutator."""
+"""A procedure application replacement mutator."""
 from __future__ import annotations
 
 from collections.abc import Generator, Mapping
 
 from mracket import mutation
 from mracket.mutation.generator import base
-from mracket.reader import lexer, syntax
+from mracket.reader import lexer, parser, stringify, syntax
 
 
-class ProcedureReplacement(base.BaseMutationGenerator):
-    """Replaces procedures with its replacements."""
+class ProcedureApplicationReplacement(base.BaseMutationGenerator):
+    """Replaces procedure applications with expressions."""
+
+    stringifier = stringify.Stringifier()
 
     def __init__(self, replacements: Mapping[str, list[str]]) -> None:
-        self.replacements = replacements
+        lexer_ = lexer.Lexer()
+        parser_ = parser.Parser()
+        processed_replacements = {}
+        for procedure_name in replacements:
+            processed_sources = []
+            for source in replacements[procedure_name]:
+                processed_sources.append(parser_.parse_expression(lexer_.tokenize(source)))
+            processed_replacements[procedure_name] = processed_sources
+        self.replacements = processed_replacements
 
     def visit_procedure_application_node(
         self, node: syntax.RacketProcedureApplicationNode
@@ -26,17 +36,11 @@ class ProcedureReplacement(base.BaseMutationGenerator):
         if procedure_name not in self.replacements:
             return
 
-        for replacement in self.replacements[procedure_name]:
-            new_node = syntax.RacketProcedureApplicationNode(
-                lparen=lexer.DUMMY_TOKEN,
-                rparen=lexer.DUMMY_TOKEN,
-                expressions=[syntax.RacketNameNode(token=lexer.Token.from_source(lexer.TokenType.SYMBOL, replacement))]
-                + node.expressions[1:],
-            )
+        for new_node in self.replacements[procedure_name]:
             explanation = (
-                f"Replace procedure {procedure_name}"
+                f"Replace procedure application of {procedure_name}"
                 f" at line {procedure.token.lineno}, column {procedure.token.colno}"
-                f" with {replacement}"
+                f" with {self.stringifier.visit(new_node)}"
             )
             yield mutation.Mutation(
                 original=node,

@@ -44,7 +44,7 @@ class Parser:
         self._lparen_stack: list[lexer.Token] = []
 
     def parse(self, tokens: list[lexer.Token]) -> syntax.RacketProgramNode:
-        """Convert the tokens into an abstract syntax tree.
+        """Convert the tokens into a Racket program abstract syntax tree.
 
         :param tokens: List of tokens
         :return: Racket program abstract syntax tree
@@ -65,6 +65,17 @@ class Parser:
             raise errors.ExpectedReaderDirective(lexer.EOF_TOKEN)
 
         return syntax.RacketProgramNode(token=tokens[0], reader_directive=reader_directive, statements=statements)
+
+    def parse_expression(self, tokens: list[lexer.Token]) -> syntax.RacketExpressionNode:
+        """Convert the tokens into an expression abstract syntax tree.
+
+        :param tokens: List of tokens
+        :return: expresison abstract syntax tree
+        """
+        self._token_stream = tokens.copy()
+        self._current_token = self._token_stream.pop(0)
+        self._lparen_stack = []
+        return self._expression()
 
     def _reader_directive(self) -> syntax.RacketReaderDirectiveNode:
         node = syntax.RacketReaderDirectiveNode(token=self._current_token)

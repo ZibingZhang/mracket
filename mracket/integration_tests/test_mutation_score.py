@@ -4,7 +4,10 @@ from __future__ import annotations
 import pytest
 
 from mracket import test
-from mracket.mutation.generator import ProcedureReplacement
+from mracket.mutation.generator import (
+    ProcedureApplicationReplacement,
+    ProcedureReplacement,
+)
 from mracket.mutation.generator.base import BaseMutationGenerator
 from mracket.mutation.mutator import Mutator
 from mracket.runner import Runner
@@ -14,8 +17,10 @@ from mracket.runner import Runner
     "filename,mutation_generator,total,killed",
     [
         ["score-0.rkt", ProcedureReplacement({}), 0, 0],
-        ["score-1.rkt", ProcedureReplacement({"+": {"-", "*"}}), 0, 0],
-        ["score-2.rkt", ProcedureReplacement({"+": {"-", "*"}}), 2, 1],
+        ["score-1.rkt", ProcedureReplacement({"+": ["-", "*"]}), 0, 0],
+        ["score-2.rkt", ProcedureReplacement({"+": ["-", "*"]}), 2, 1],
+        ["score-1.rkt", ProcedureApplicationReplacement({"+": ["1", "4"]}), 0, 0],
+        ["score-2.rkt", ProcedureApplicationReplacement({"+": ["1", "4"]}), 2, 1],
     ],
 )
 @pytest.mark.slow
