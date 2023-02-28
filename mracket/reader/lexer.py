@@ -133,7 +133,7 @@ WHITESPACE = re.compile(r"\s+")
 # fmt: on
 
 
-class TokenType(enum.StrEnum):
+class TokenType(enum.Enum):
     """The type of token."""
 
     BOOLEAN = "BOOLEAN"

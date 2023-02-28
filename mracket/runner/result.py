@@ -12,7 +12,7 @@ from typing import cast
 from mracket import mutation
 
 
-class Reason(enum.StrEnum):
+class Reason(enum.Enum):
     """Runner failure reasons."""
 
     NOT_DRRACKETY = "Program missing DrRacket prefix."
