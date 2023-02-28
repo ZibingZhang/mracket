@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import abc
+import enum
 from typing import Any
 
 from mracket.reader import lexer
@@ -94,10 +95,10 @@ class RacketASTVisitor(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def visit_check_expect_node(self, node: RacketCheckExpectNode) -> Any:
-        """Visit a check expect node.
+    def visit_test_case_node(self, node: RacketTestCaseNode) -> Any:
+        """Visit a test case node.
 
-        :param node: A check expect node
+        :param node: A test case node
         :return: The result of the visitor visiting this node
         """
 
@@ -277,27 +278,35 @@ class RacketProcedureApplicationNode(RacketSExprNode):
         return visitor.visit_procedure_application_node(self)
 
 
-class RacketTestCaseNode(RacketStatementNode, metaclass=abc.ABCMeta):
+class RacketTestCaseNode(RacketStatementNode):
     """A test case node."""
 
-    def __init__(self, lparen: lexer.Token, rparen: lexer.Token) -> None:
+    class Type(enum.Enum):
+        """The type of test case node."""
+
+        CHECK_EXPECT = "check-expect"
+        CHECK_RANDOM = "check-random"
+        CHECK_WITHIN = "check-within"
+        CHECK_MEMBER = "check-member"
+        CHECK_RANGE = "check-range"
+        CHECK_SATISFIED = "check-satisfied"
+        CHECK_ERROR = "check-error"
+
+    def __init__(
+        self,
+        lparen: lexer.Token,
+        rparen: lexer.Token,
+        typ: RacketTestCaseNode.Type,
+        expressions: list[RacketExpressionNode],
+    ) -> None:
         super().__init__(lparen)
         self.lparen = lparen
         self.rparen = rparen
-
-
-class RacketCheckExpectNode(RacketTestCaseNode):
-    """A check-expect node."""
-
-    def __init__(
-        self, lparen: lexer.Token, rparen: lexer.Token, actual: RacketExpressionNode, expected: RacketExpressionNode
-    ) -> None:
-        super().__init__(lparen, rparen)
-        self.actual = actual
-        self.expected = expected
+        self.type = typ
+        self.expressions = expressions
 
     def accept_visitor(self, visitor: RacketASTVisitor) -> Any:
-        return visitor.visit_check_expect_node(self)
+        return visitor.visit_test_case_node(self)
 
 
 class RacketLibraryRequireNode(RacketStatementNode):

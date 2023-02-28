@@ -63,8 +63,8 @@ class Parser:
 
         if self._is_defintion_statement():
             return self._definition()
-        if test_case_type := self._is_test_case_statement():
-            return self._test_case(test_case_type)
+        if self._is_test_case_statement():
+            return self._test_case()
         if self._is_library_require_statement():
             return self._library_require()
         return self._expression()
@@ -192,17 +192,16 @@ class Parser:
         rparen = self._eat(lexer.TokenType.RPAREN)
         return syntax.RacketProcedureApplicationNode(lparen=lparen, rparen=rparen, expressions=expressions)
 
-    def _test_case(self, test_case_type: str) -> syntax.RacketTestCaseNode:
+    def _test_case(self) -> syntax.RacketTestCaseNode:
         lparen = self._eat(lexer.TokenType.LPAREN)
-        self._eat(lexer.TokenType.SYMBOL)
-        if test_case_type == "check-expect":
-            actual = self._expression()
-            expected = self._expression()
-            rparen = self._eat(lexer.TokenType.RPAREN)
-            return syntax.RacketCheckExpectNode(lparen=lparen, rparen=rparen, actual=actual, expected=expected)
-        else:
-            # TODO: parse other check forms
-            raise errors.IllegalStateError()
+        name = self._eat(lexer.TokenType.SYMBOL)
+        expressions = []
+        while self._current_token.type is not lexer.TokenType.RPAREN:
+            expressions.append(self._expression())
+        rparen = self._eat(lexer.TokenType.RPAREN)
+        return syntax.RacketTestCaseNode(
+            lparen=lparen, rparen=rparen, typ=syntax.RacketTestCaseNode.Type(name.source), expressions=expressions
+        )
 
     def _library_require(self) -> syntax.RacketLibraryRequireNode:
         lparen = self._eat(lexer.TokenType.LPAREN)

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import abc
 from collections.abc import Generator
 
 from mracket import mutation
 from mracket.reader import syntax
 
 
-class BaseMutationGenerator(syntax.RacketASTVisitor):
+class BaseMutationGenerator(syntax.RacketASTVisitor, metaclass=abc.ABCMeta):
     def visit_program_node(self, node: syntax.RacketProgramNode) -> Generator[mutation.Mutation, None, None]:
         return
         yield
@@ -57,7 +58,7 @@ class BaseMutationGenerator(syntax.RacketASTVisitor):
         return
         yield
 
-    def visit_check_expect_node(self, node: syntax.RacketCheckExpectNode) -> Generator[mutation.Mutation, None, None]:
+    def visit_test_case_node(self, node: syntax.RacketTestCaseNode) -> Generator[mutation.Mutation, None, None]:
         return
         yield
 

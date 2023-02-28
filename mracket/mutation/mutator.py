@@ -80,7 +80,7 @@ class Mutator(syntax.RacketASTVisitor):
             for mut in self.visit(child_node):
                 yield mut
 
-    def visit_check_expect_node(self, node: syntax.RacketCheckExpectNode) -> Generator[mutation.Mutation, None, None]:
+    def visit_test_case_node(self, node: syntax.RacketTestCaseNode) -> Generator[mutation.Mutation, None, None]:
         return
         yield
 

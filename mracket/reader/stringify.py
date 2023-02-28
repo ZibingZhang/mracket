@@ -40,8 +40,8 @@ class Stringifier(syntax.RacketASTVisitor):
     def visit_procedure_application_node(self, node: syntax.RacketProcedureApplicationNode) -> str:
         return f"({' '.join(map(self.visit, node.expressions))})"
 
-    def visit_check_expect_node(self, node: syntax.RacketCheckExpectNode) -> str:
-        return f"(check-expect {self.visit(node.actual)} {self.visit(node.expected)})"
+    def visit_test_case_node(self, node: syntax.RacketTestCaseNode) -> str:
+        return f"({node.type.value} {' '.join(map(self.visit, node.expressions))})"
 
     def visit_library_require_node(self, node: syntax.RacketLibraryRequireNode) -> str:
         return f"(require {self.visit(node.library)})"

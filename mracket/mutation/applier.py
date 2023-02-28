@@ -165,22 +165,17 @@ class MutationApplier(syntax.RacketASTVisitor):
             for result in self.visit(child_node):
                 yield result
 
-    def visit_check_expect_node(
-        self, node: syntax.RacketCheckExpectNode
+    def visit_test_case_node(
+        self, node: syntax.RacketTestCaseNode
     ) -> Generator[tuple[mutation.Mutation, str], None, None]:
-        actual = node.actual
-        for mut in self._get_mutations(node.actual):
-            node.actual = cast(syntax.RacketExpressionNode, mut.replacement)
-            yield mut, self.stringifier.visit(self.program)
-        node.actual = actual
+        expressions = node.expressions.copy()
+        for i, expression in enumerate(node.expressions):
+            for mut in self._get_mutations(expression):
+                node.expressions[i] = cast(syntax.RacketExpressionNode, mut.replacement)
+                yield mut, self.stringifier.visit(self.program)
+            node.expressions = expressions
 
-        expected = node.expected
-        for mut in self._get_mutations(node.expected):
-            node.expected = cast(syntax.RacketExpressionNode, mut.replacement)
-            yield mut, self.stringifier.visit(self.program)
-        node.expected = expected
-
-        for child_node in [node.actual, node.expected]:
+        for child_node in node.expressions:
             for result in self.visit(child_node):
                 yield result
 
