@@ -25,6 +25,10 @@ class Stringifier(syntax.RacketASTVisitor):
     def visit_name_node(self, node: syntax.RacketNameNode) -> str:
         return node.token.source
 
+    def visit_cond_node(self, node: syntax.RacketCondNode) -> str:
+        branches = " ".join(f"({self.visit(condition)} {self.visit(expression)})" for condition, expression in node.branches)
+        return f"(cond {branches})"
+
     def visit_lambda_node(self, node: syntax.RacketLambdaNode) -> str:
         return f"(lambda ({' '.join(map(self.visit, node.variables))}) {self.visit(node.expression)})"
 

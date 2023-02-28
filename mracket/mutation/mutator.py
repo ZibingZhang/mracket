@@ -1,7 +1,8 @@
 """A code mutator."""
 from __future__ import annotations
 
-from typing import Generator
+import itertools
+from collections.abc import Generator
 
 from mracket import mutation
 from mracket.mutation.generator import base
@@ -25,10 +26,8 @@ class Mutator(syntax.RacketASTVisitor):
             yield mut
 
     def visit_program_node(self, node: syntax.RacketProgramNode) -> Generator[mutation.Mutation, None, None]:
-        for mut in self.visit(node.reader_directive):
-            yield mut
-        for statement in node.statements:
-            for mut in self.visit(statement):
+        for child_node in (node.reader_directive, *node.statements):
+            for mut in self.visit(child_node):
                 yield mut
 
     def visit_reader_directive_node(
@@ -40,18 +39,15 @@ class Mutator(syntax.RacketASTVisitor):
     def visit_constant_definition_node(
         self, node: syntax.RacketConstantDefinitionNode
     ) -> Generator[mutation.Mutation, None, None]:
-        for mut in self.visit(node.name):
-            yield mut
-        for mut in self.visit(node.expression):
-            yield mut
+        for child_node in (node.name, node.expression):
+            for mut in self.visit(child_node):
+                yield mut
 
     def visit_structure_definition_node(
         self, node: syntax.RacketStructureDefinitionNode
     ) -> Generator[mutation.Mutation, None, None]:
-        for mut in self.visit(node.name):
-            yield mut
-        for field in node.fields:
-            for mut in self.visit(field):
+        for child_node in (node.name, *node.fields):
+            for mut in self.visit(child_node):
                 yield mut
 
     def visit_literal_node(self, node: syntax.RacketLiteralNode) -> Generator[mutation.Mutation, None, None]:
@@ -62,18 +58,21 @@ class Mutator(syntax.RacketASTVisitor):
         return
         yield
 
-    def visit_lambda_node(self, node: syntax.RacketLambdaNode) -> Generator[mutation.Mutation, None, None]:
-        for variable in node.variables:
-            for mut in self.visit(variable):
+    def visit_cond_node(self, node: syntax.RacketCondNode) -> Generator[mutation.Mutation, None, None]:
+        for child_node in itertools.chain.from_iterable(node.branches):
+            for mut in self.visit(child_node):
                 yield mut
-        for mut in self.visit(node.expression):
-            yield mut
+
+    def visit_lambda_node(self, node: syntax.RacketLambdaNode) -> Generator[mutation.Mutation, None, None]:
+        for child_node in (*node.variables, node.expression):
+            for mut in self.visit(child_node):
+                yield mut
 
     def visit_procedure_application_node(
         self, node: syntax.RacketProcedureApplicationNode
     ) -> Generator[mutation.Mutation, None, None]:
-        for expression in node.expressions:
-            for mut in self.visit(expression):
+        for child_node in node.expressions:
+            for mut in self.visit(child_node):
                 yield mut
 
     def visit_check_expect_node(self, node: syntax.RacketCheckExpectNode) -> Generator[mutation.Mutation, None, None]:

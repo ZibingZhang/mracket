@@ -17,6 +17,7 @@ from mracket.reader import lexer, parser, syntax
         [syntax.RacketLiteralNode, r"1"],
         [syntax.RacketLiteralNode, '"Hello, World!"'],
         [syntax.RacketNameNode, "identity"],
+        [syntax.RacketCondNode, "(cond [#t 1])"],
         [syntax.RacketLibraryRequireNode, "(require 2htdp/universe)"],
     ],
 )

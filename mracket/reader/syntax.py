@@ -62,6 +62,14 @@ class RacketASTVisitor(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
+    def visit_cond_node(self, node: RacketCondNode) -> Any:
+        """Visit a cond node.
+
+        :param node: A cond node
+        :return: The result of the visitor visiting this node
+        """
+
+    @abc.abstractmethod
     def visit_lambda_node(self, node: RacketLambdaNode) -> Any:
         """Visit a lambda node.
 
@@ -196,6 +204,22 @@ class RacketSExprNode(RacketExpressionNode, metaclass=abc.ABCMeta):
         super().__init__(lparen)
         self.lparen = lparen
         self.rparen = rparen
+
+
+class RacketCondNode(RacketSExprNode):
+    """A cond node."""
+
+    def __init__(
+        self,
+        lparen: lexer.Token,
+        rparen: lexer.Token,
+        branches: list[tuple[RacketExpressionNode, RacketExpressionNode]],
+    ) -> None:
+        super().__init__(lparen, rparen)
+        self.branches = branches
+
+    def accept_visitor(self, visitor: RacketASTVisitor) -> Any:
+        return visitor.visit_cond_node(self)
 
 
 class RacketLambdaNode(RacketSExprNode):

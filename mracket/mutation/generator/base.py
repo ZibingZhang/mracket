@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Generator
-from typing import Any
 
 from mracket import mutation
 from mracket.reader import syntax
@@ -32,11 +31,15 @@ class BaseMutationGenerator(syntax.RacketASTVisitor):
         return
         yield
 
-    def visit_literal_node(self, node: syntax.RacketLiteralNode) -> Any:
+    def visit_literal_node(self, node: syntax.RacketLiteralNode) -> Generator[mutation.Mutation, None, None]:
         return
         yield
 
     def visit_name_node(self, node: syntax.RacketNameNode) -> Generator[mutation.Mutation, None, None]:
+        return
+        yield
+
+    def visit_cond_node(self, node: syntax.RacketCondNode) -> Generator[mutation.Mutation, None, None]:
         return
         yield
 

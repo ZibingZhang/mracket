@@ -29,11 +29,13 @@ class Parser:
     def __init__(self) -> None:
         self._token_stream: list[lexer.Token] = []
         self._current_token = lexer.EOF_TOKEN
+        self._lparen_stack: list[lexer.Token] = []
 
     def parse(self, tokens: list[lexer.Token]) -> syntax.RacketProgramNode:
         """Convert the tokens into an abstract syntax tree."""
         self._token_stream = tokens.copy()
         self._current_token = self._token_stream.pop(0)
+        self._lparen_stack = []
 
         statements = []
         reader_directive = None
@@ -59,11 +61,11 @@ class Parser:
         if self._current_token.type is lexer.TokenType.RPAREN:
             raise errors.UnexpectedRightParenthesisError(self._current_token)
 
-        if definition_type := self._is_defintion():
+        if definition_type := self._is_defintion_statement():
             return self._definition(definition_type)
-        if test_case_type := self._is_test_case():
+        if test_case_type := self._is_test_case_statement():
             return self._test_case(test_case_type)
-        if self._is_library_require():
+        if self._is_library_require_statement():
             return self._library_require()
         return self._expression()
 
@@ -128,17 +130,33 @@ class Parser:
         if token_type is not lexer.TokenType.LPAREN:
             raise errors.IllegalStateError(str(self._current_token))
 
+        if self._is_cond_expression():
+            return self._cond()
+
+        return self._procedure_application()
+
+    def _name(self) -> syntax.RacketNameNode:
+        return syntax.RacketNameNode(token=self._eat(lexer.TokenType.SYMBOL))
+
+    def _cond(self) -> syntax.RacketCondNode:
+        lparen = self._eat(lexer.TokenType.LPAREN)
+        self._eat(lexer.TokenType.SYMBOL)
+        branches = []
+        while self._current_token.type is not lexer.TokenType.RPAREN:
+            self._eat(lexer.TokenType.LPAREN)
+            branch = (self._expression(), self._expression())
+            self._eat(lexer.TokenType.RPAREN)
+            branches.append(branch)
+        rparen = self._eat(lexer.TokenType.RPAREN)
+        return syntax.RacketCondNode(lparen, rparen, branches)
+
+    def _procedure_application(self) -> syntax.RacketProcedureApplicationNode:
         lparen = self._eat(lexer.TokenType.LPAREN)
         expressions = []
         while self._current_token.type is not lexer.TokenType.RPAREN:
             expressions.append(self._expression())
         rparen = self._eat(lexer.TokenType.RPAREN)
-        if rparen.source != MATCHING_PARENS[lparen.source]:
-            raise errors.MismatchedParenthesesError(lparen, rparen)
         return syntax.RacketProcedureApplicationNode(lparen=lparen, rparen=rparen, expressions=expressions)
-
-    def _name(self) -> syntax.RacketNameNode:
-        return syntax.RacketNameNode(token=self._eat(lexer.TokenType.SYMBOL))
 
     def _test_case(self, test_case_type: str) -> syntax.RacketTestCaseNode:
         lparen = self._eat(lexer.TokenType.LPAREN)
@@ -163,17 +181,24 @@ class Parser:
         if self._current_token.type != token_type:
             raise errors.ParserError(self._current_token)
 
+        if token_type is lexer.TokenType.LPAREN:
+            self._lparen_stack.append(self._current_token)
+        elif token_type is lexer.TokenType.RPAREN:
+            lparen = self._lparen_stack.pop()
+            if self._current_token.source != MATCHING_PARENS[lparen.source]:
+                raise errors.MismatchedParenthesesError(lparen, self._current_token)
+
         previous_token = self._current_token
         self._current_token = self._token_stream.pop(0)
         return previous_token
 
-    def _is_defintion(self) -> str | Literal[False]:
+    def _is_defintion_statement(self) -> str | Literal[False]:
         return self._is_special_statement(DEFINITION)
 
-    def _is_test_case(self) -> str | Literal[False]:
+    def _is_test_case_statement(self) -> str | Literal[False]:
         return self._is_special_statement(TEST_CASE)
 
-    def _is_library_require(self) -> str | Literal[False]:
+    def _is_library_require_statement(self) -> str | Literal[False]:
         return self._is_special_statement(LIBRARY_REQUIRE)
 
     def _is_special_statement(self, pattern: re.Pattern) -> str | Literal[False]:
@@ -183,3 +208,7 @@ class Parser:
         if next_token.type is lexer.TokenType.SYMBOL and re.match(pattern, next_token.source):
             return next_token.source
         return False
+
+    def _is_cond_expression(self) -> bool:
+        next_token = self._token_stream[0]
+        return next_token.type is lexer.TokenType.SYMBOL and next_token.source == "cond"

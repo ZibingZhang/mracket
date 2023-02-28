@@ -1,6 +1,7 @@
 """A code mutation applier."""
 from __future__ import annotations
 
+import itertools
 from collections.abc import Generator
 from typing import cast
 
@@ -100,6 +101,20 @@ class MutationApplier(syntax.RacketASTVisitor):
     def visit_name_node(self, node: syntax.RacketNameNode) -> Generator[tuple[mutation.Mutation, str], None, None]:
         return
         yield
+
+    def visit_cond_node(self, node: syntax.RacketCondNode) -> Generator[tuple[mutation.Mutation, str], None, None]:
+        for i, (condition, expression) in enumerate(node.branches):
+            for mut in self._get_mutations(condition):
+                node.branches[i] = (cast(syntax.RacketExpressionNode, mut.replacement), node.branches[i][1])
+            node.branches[i] = (condition, expression)
+
+            for mut in self._get_mutations(expression):
+                node.branches[i] = (node.branches[i][0], cast(syntax.RacketExpressionNode, mut.replacement))
+            node.branches[i] = (condition, expression)
+
+        for child_node in itertools.chain.from_iterable(node.branches):
+            for result in self.visit(child_node):
+                yield result
 
     def visit_lambda_node(self, node: syntax.RacketLambdaNode) -> Generator[tuple[mutation.Mutation, str], None, None]:
         variables = node.variables.copy()
