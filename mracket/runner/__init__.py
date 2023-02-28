@@ -24,9 +24,12 @@ class Runner:
     BATCH_SIZE = 10
     DIR = tempfile.gettempdir()
 
-    def __init__(self, filename: str, mutator_: mutator.Mutator) -> None:
-        self.filename = filename
+    def __init__(self, mutator_: mutator.Mutator, filename: str = "", source: str = "") -> None:
+        assert filename == "" or source == ""
+
         self.mutator = mutator_
+        self.filename = filename
+        self.source = source
         self.success = result.RunnerSuccess(filename)
 
     @staticmethod
@@ -35,38 +38,44 @@ class Runner:
         if shutil.which("racket") is None:
             raise FileNotFoundError("Cannot find the racket executable.")
 
-    @staticmethod
-    def check_file_exists(filename: str) -> None:
-        """Check that the file exists."""
-        if not os.path.isfile(filename):
-            raise FileNotFoundError(f"{filename} not found.")
-
     def run(self) -> None:
         """Evaluate the program and its mutants."""
-        self.check_file_exists(self.filename)
-        program = self.build_syntax_tree(self.filename)
+        self.check_file_exists(self.filename, self.source)
+        program = self.build_syntax_tree(self.filename, self.source)
         self.success.unmodified_result = self.run_unmodified(program)
         self.success.mutations = self.generate_mutations(self.mutator, program)
         mutation_mutants = self.apply_mutations(program, self.success.mutations)
         self.success.mutant_results = self.run_mutants(mutation_mutants)
 
     @staticmethod
-    def build_syntax_tree(filename) -> syntax.RacketProgramNode:
+    def check_file_exists(filename: str, source: str) -> None:
+        """Check that the file exists.
+
+        :param filename: Racket program filename
+        :param source: Racket program source
+        """
+        if source == "" and not os.path.isfile(filename):
+            raise FileNotFoundError(f"{filename} not found.")
+
+    @staticmethod
+    def build_syntax_tree(filename: str, source: str) -> syntax.RacketProgramNode:
         """Build an abstract syntax tree of the Racket program.
 
-        :param filename: A Racket program filename
+        :param filename: Racket program filename
+        :param source: Racket program source
         :return: A program abstract syntax tree
         """
-        with open(filename) as f:
-            source = f.read()
+        if source == "":
+            with open(filename) as f:
+                source = f.read()
         if not source.startswith(DRRACKET_PREFIX):
-            raise result.RunnerFailure(reason=result.Reason.NOT_DRRACKETY)
+            raise result.RunnerFailure(reason=result.RunnerFailure.Reason.NOT_DRRACKETY)
         tokens = lexer.Lexer().tokenize(source)
         program = parser.Parser().parse(tokens)
         return program
 
     @staticmethod
-    def run_unmodified(program: syntax.RacketProgramNode) -> Generator[result.ProgramExecutionResult, None, None]:
+    def run_unmodified(program: syntax.RacketProgramNode) -> result.ProgramExecutionResult:
         """Run the original program.
 
         The source code is not being run but rather the stringified program. The reason
@@ -83,9 +92,14 @@ class Runner:
         Runner._delete_file(filename)
         if process.returncode != 0 or len(stderr) > 0:
             raise result.RunnerFailure(
-                reason=result.Reason.NON_ZERO_ORIGINAL_RETURNCODE, returncode=process.returncode, stderr=stderr
+                reason=result.RunnerFailure.Reason.NON_ZERO_UNMODIFIED_RETURNCODE,
+                returncode=process.returncode,
+                stderr=stderr,
             )
-        yield result.ProgramExecutionResult(stdout)
+        unmodified_result = result.ProgramExecutionResult(stdout)
+        if len(unmodified_result.failures) > 0:
+            raise result.RunnerFailure(reason=result.RunnerFailure.Reason.UNMODIFIED_TEST_FAILURE)
+        return unmodified_result
 
     @staticmethod
     def generate_mutations(mutator_: mutator.Mutator, program: syntax.RacketProgramNode) -> list[mutation.Mutation]:
@@ -133,10 +147,9 @@ class Runner:
                 stdout, stderr = process.communicate()
                 Runner._delete_file(filename)
                 if process.returncode != 0 or len(stderr) > 0:
-                    raise result.RunnerFailure(
-                        reason=result.Reason.NON_ZERO_MUTANT_RETURNCODE, returncode=process.returncode, stderr=stderr
-                    )
-                yield result.MutantExecutionResult(stdout, mut)
+                    yield result.MutantExecutionResult(mut=mut, returncode=process.returncode, stderr=stderr)
+                else:
+                    yield result.MutantExecutionResult(mut=mut, returncode=process.returncode, stdout=stdout)
 
     # https://docs.python.org/3/library/itertools.html#itertools-recipes
     @staticmethod

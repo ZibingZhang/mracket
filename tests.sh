@@ -1,5 +1,5 @@
 #!/bin/bash
-FLAGS=(-s -vv)
+FLAGS=(-s -vv -n auto)
 
 set -eoux pipefail
 

@@ -4,21 +4,10 @@ from __future__ import annotations
 import abc
 import dataclasses
 import enum
-import inspect
 import re
-from collections.abc import Generator, Iterator
-from typing import cast
+from collections.abc import Iterator
 
 from mracket import mutation
-
-
-class Reason(enum.Enum):
-    """Runner failure reasons."""
-
-    NOT_DRRACKETY = "Program missing DrRacket prefix."
-    NOT_WELL_FORMED_PROGRAM = "Program not well-formed."
-    NON_ZERO_MUTANT_RETURNCODE = "Non-zero returncode when running mutant."
-    NON_ZERO_ORIGINAL_RETURNCODE = "Non-zero returncode when running original."
 
 
 class RunnerResult(metaclass=abc.ABCMeta):
@@ -28,37 +17,44 @@ class RunnerResult(metaclass=abc.ABCMeta):
 class RunnerFailure(RunnerResult, Exception):
     """A runner failure."""
 
+    class Reason(enum.Enum):
+        """Runner failure reason."""
+
+        NOT_DRRACKETY = "Program missing DrRacket prefix"
+        NOT_WELL_FORMED_PROGRAM = "Program not well-formed"
+        NON_ZERO_MUTANT_RETURNCODE = "Non-zero returncode when running mutant"
+        NON_ZERO_UNMODIFIED_RETURNCODE = "Non-zero returncode when running unmodified source"
+        UNMODIFIED_TEST_FAILURE = "Test failure when running unmodified source"
+
     def __init__(self, reason: Reason, **kwargs) -> None:
         super(Exception, self).__init__(reason.value)
         self.reason = reason
         self.dict = kwargs
 
 
-class UnmodifiedResult:
-    """The result of the original program."""
-
-    def __get__(self, obj: RunnerSuccess, objtype: type) -> ProgramExecutionResult | None:
-        if obj._unmodified_result is None:
-            return None
-        if inspect.isgenerator(obj._unmodified_result):
-            obj._unmodified_result = next(obj._unmodified_result)
-        return cast(ProgramExecutionResult, obj._unmodified_result)
-
-    def __set__(self, obj: RunnerSuccess, value: Generator[ProgramExecutionResult, None, None]) -> None:
-        obj._unmodified_result = value
-
-
 class RunnerSuccess(RunnerResult):
     """A runner success."""
-
-    unmodified_result = UnmodifiedResult()
 
     def __init__(self, filename: str) -> None:
         self.filename = filename
         self.mutations: list[mutation.Mutation] = []
+        self.unmodified_result: ProgramExecutionResult | None = None
         self.mutant_results: Iterator[MutantExecutionResult] | None = None
 
-        self._unmodified_result: Generator[ProgramExecutionResult, None, None] | ProgramExecutionResult | None = None
+    @property
+    def score(self) -> MutationScore:
+        if self.mutant_results is None:
+            return MutationScore(total=0, killed=0, execution_error=0)
+
+        killed = 0
+        execution_error = 0
+        i = -1
+        for i, result in enumerate(self.mutant_results):
+            if result.stderr:
+                execution_error += 1
+            elif len(result.failures) > 0:
+                killed += 1
+        return MutationScore(total=i + 1, killed=killed, execution_error=execution_error)
 
     def pprint(self) -> None:
         if self.unmodified_result is not None:
@@ -68,19 +64,33 @@ class RunnerSuccess(RunnerResult):
             print(f"    failed: {len(self.unmodified_result.failures)}")
 
         if self.mutant_results is not None:
+            killed = 0
+            execution_error = 0
+            i = -1
             print("======================================== MUTATION RESULTS =========================================")
             for i, result in enumerate(self.mutant_results):
                 print(f"-------------------------------------- MUTATION {i + 1} --------------------------------------")
                 print(f"mutation: {result.mutation.explanation}")
-                print(f"total: {result.total}")
-                print(f"    passed: {result.passed}")
-                print(f"    failed: {len(result.failures)}")
+                if result.stderr:
+                    print(f"error: {result.stderr.decode('utf-8')}")
+                    execution_error += 1
+                else:
+                    print(f"total: {result.total}")
+                    print(f"    passed: {result.passed}")
+                    print(f"    failed: {len(result.failures)}")
+                    if len(result.failures) > 0:
+                        killed += 1
+
+            print("-------------------------------------- MUTATION SUMMARY --------------------------------------")
+            print(f"total: {i + 1}")
+            print(f"    killed: {killed}")
+            print(f"    execution errors: {execution_error}")
 
 
 class ProgramExecutionResult:
     """A Racket program result."""
 
-    def __init__(self, stdout: bytes) -> None:
+    def __init__(self, stdout: bytes = b"") -> None:
         self.passed = -1
         self.failures: list[TestFailure] = []
         self.output = stdout.decode("utf-8")
@@ -103,20 +113,19 @@ class ProgramExecutionResult:
         else:
             return
 
-        assert "Check failures:" in self.output
-
-        re_matchs = re.finditer(
-            r"Actual value │ (.*?) │ differs from │ (.*?) │, the expected value.*?line (\d+), column (\d+)",
-            self.output,
-            re.DOTALL,
-        )
-        for re_match in re_matchs:
-            groups = re_match.groups()
-            actual = groups[0]
-            expected = groups[1]
-            lineno = int(groups[2])
-            colno = int(groups[3])
-            self.failures.append(TestFailure(actual, expected, lineno, colno))
+        if "Check failures:" in self.output:
+            re_matchs = re.finditer(
+                r"Actual value │ (.*?) │ differs from │ (.*?) │, the expected value.*?line (\d+), column (\d+)",
+                self.output,
+                re.DOTALL,
+            )
+            for re_match in re_matchs:
+                groups = re_match.groups()
+                actual = groups[0]
+                expected = groups[1]
+                lineno = int(groups[2])
+                colno = int(groups[3])
+                self.failures.append(TestFailure(actual, expected, lineno, colno))
 
     @property
     def total(self) -> int:
@@ -126,9 +135,11 @@ class ProgramExecutionResult:
 class MutantExecutionResult(ProgramExecutionResult):
     """A mutant Racket program result."""
 
-    def __init__(self, stdout: bytes, mut: mutation.Mutation) -> None:
+    def __init__(self, mut: mutation.Mutation, returncode: int, stdout: bytes = b"", stderr: bytes = b"") -> None:
         super().__init__(stdout)
         self.mutation = mut
+        self.stderr = stderr
+        self.returncode = returncode
 
 
 @dataclasses.dataclass
@@ -142,3 +153,12 @@ class TestFailure:
 
     def __str__(self) -> str:
         return f"Actual value {self.actual} differs from {self.expected}, the expected value"
+
+
+@dataclasses.dataclass
+class MutationScore:
+    """A mutation score."""
+
+    total: int
+    killed: int
+    execution_error: int

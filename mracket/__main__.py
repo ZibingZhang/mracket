@@ -4,7 +4,7 @@ from mracket.mutation import generator, mutator
 runner.Runner.check_preconditions()
 
 runner_ = runner.Runner(
-    "./mracket/test/inputs/input-1.rkt", mutator.Mutator([generator.ProcedureReplacement({"+": {"-", "*"}})])
+    mutator.Mutator([generator.ProcedureReplacement({"+": {"-", "*"}})]), filename="./mracket/test/inputs/input-1.rkt"
 )
 
 runner_.run()

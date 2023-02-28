@@ -32,7 +32,11 @@ class Parser:
         self._lparen_stack: list[lexer.Token] = []
 
     def parse(self, tokens: list[lexer.Token]) -> syntax.RacketProgramNode:
-        """Convert the tokens into an abstract syntax tree."""
+        """Convert the tokens into an abstract syntax tree.
+
+        :param tokens: List of tokens
+        :return: Racket program abstract syntax tree
+        """
         self._token_stream = tokens.copy()
         self._current_token = self._token_stream.pop(0)
         self._lparen_stack = []
