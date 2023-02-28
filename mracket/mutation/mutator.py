@@ -68,6 +68,11 @@ class Mutator(syntax.RacketASTVisitor):
             for mut in self.visit(child_node):
                 yield mut
 
+    def visit_let_node(self, node: syntax.RacketLetNode) -> Generator[mutation.Mutation, None, None]:
+        for child_node in (*itertools.chain.from_iterable(node.local_definitions), node.expression):
+            for mut in self.visit(child_node):
+                yield mut
+
     def visit_local_node(self, node: syntax.RacketLocalNode) -> Generator[mutation.Mutation, None, None]:
         for child_node in (*node.definitions, node.expression):
             for mut in self.visit(child_node):

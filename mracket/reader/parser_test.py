@@ -19,6 +19,7 @@ from mracket.reader import lexer, parser, syntax
         [syntax.RacketNameNode, "identity"],
         [syntax.RacketCondNode, "(cond [#t 1])"],
         [syntax.RacketLambdaNode, "(lambda (x) 1)"],
+        [syntax.RacketLetNode, "(let ((x 1)) x)"],
         [syntax.RacketLocalNode, "(local ((define x 1)) x)"],
         [syntax.RacketLibraryRequireNode, "(require 2htdp/universe)"],
     ],

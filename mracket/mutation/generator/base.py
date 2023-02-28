@@ -48,6 +48,10 @@ class BaseMutationGenerator(syntax.RacketASTVisitor, metaclass=abc.ABCMeta):
         return
         yield
 
+    def visit_let_node(self, node: syntax.RacketLetNode) -> Generator[mutation.Mutation, None, None]:
+        return
+        yield
+
     def visit_local_node(self, node: syntax.RacketLocalNode) -> Generator[mutation.Mutation, None, None]:
         return
         yield

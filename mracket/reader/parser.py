@@ -140,6 +140,8 @@ class Parser:
             return self._cond()
         if self._is_lambda_expression():
             return self._lambda()
+        if self._is_let_expression():
+            return self._let()
         if self._is_local_expression():
             return self._local()
 
@@ -171,6 +173,27 @@ class Parser:
         expression = self._expression()
         rparen = self._eat(lexer.TokenType.RPAREN)
         return syntax.RacketLambdaNode(lparen=lparen, rparen=rparen, variables=variables, expression=expression)
+
+    def _let(self) -> syntax.RacketLetNode:
+        lparen = self._eat(lexer.TokenType.LPAREN)
+        name = self._eat(lexer.TokenType.SYMBOL)
+        self._eat(lexer.TokenType.LPAREN)
+        local_definitions = []
+        while self._current_token.type is not lexer.TokenType.RPAREN:
+            self._eat(lexer.TokenType.LPAREN)
+            local_definition = (self._name(), self._expression())
+            self._eat(lexer.TokenType.RPAREN)
+            local_definitions.append(local_definition)
+        self._eat(lexer.TokenType.RPAREN)
+        expression = self._expression()
+        rparen = self._eat(lexer.TokenType.RPAREN)
+        return syntax.RacketLetNode(
+            lparen=lparen,
+            rparen=rparen,
+            typ=syntax.RacketLetNode.Type(name.source),
+            local_definitions=local_definitions,
+            expression=expression,
+        )
 
     def _local(self) -> syntax.RacketLocalNode:
         lparen = self._eat(lexer.TokenType.LPAREN)
@@ -252,12 +275,14 @@ class Parser:
         return self._is_special_expression("cond")
 
     def _is_lambda_expression(self) -> bool:
-        next_token = self._token_stream[0]
-        return next_token.type is lexer.TokenType.SYMBOL and next_token.source in ("\u03bb", "lambda")
+        return self._is_special_expression("\u03bb", "lambda")
+
+    def _is_let_expression(self) -> bool:
+        return self._is_special_expression("letrec", "let", "let*")
 
     def _is_local_expression(self) -> bool:
         return self._is_special_expression("local")
 
-    def _is_special_expression(self, name: str) -> bool:
+    def _is_special_expression(self, *names: str) -> bool:
         next_token = self._token_stream[0]
-        return next_token.type is lexer.TokenType.SYMBOL and next_token.source == name
+        return next_token.type is lexer.TokenType.SYMBOL and next_token.source in names

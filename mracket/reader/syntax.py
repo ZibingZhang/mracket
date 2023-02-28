@@ -79,6 +79,14 @@ class RacketASTVisitor(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
+    def visit_let_node(self, node: RacketLetNode) -> Any:
+        """Visit a let node.
+
+        :param node: A let node
+        :return: The result of the visitor visiting this node
+        """
+
+    @abc.abstractmethod
     def visit_local_node(self, node: RacketLocalNode) -> Any:
         """Visit a local node.
 
@@ -247,6 +255,33 @@ class RacketLambdaNode(RacketSExprNode):
 
     def accept_visitor(self, visitor: RacketASTVisitor) -> Any:
         return visitor.visit_lambda_node(self)
+
+
+class RacketLetNode(RacketSExprNode):
+    """A let node."""
+
+    class Type(enum.Enum):
+        """The type of let node."""
+
+        LETREC = "letrec"
+        LET = "let"
+        LET_STAR = "let*"
+
+    def __init__(
+        self,
+        lparen: lexer.Token,
+        rparen: lexer.Token,
+        typ: RacketLetNode.Type,
+        local_definitions: list[tuple[RacketNameNode, RacketExpressionNode]],
+        expression: RacketExpressionNode,
+    ) -> None:
+        super().__init__(lparen, rparen)
+        self.type = typ
+        self.local_definitions = local_definitions
+        self.expression = expression
+
+    def accept_visitor(self, visitor: RacketASTVisitor) -> Any:
+        return visitor.visit_let_node(self)
 
 
 class RacketLocalNode(RacketSExprNode):

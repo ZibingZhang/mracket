@@ -34,6 +34,12 @@ class Stringifier(syntax.RacketASTVisitor):
     def visit_lambda_node(self, node: syntax.RacketLambdaNode) -> str:
         return f"(lambda ({' '.join(map(self.visit, node.variables))}) {self.visit(node.expression)})"
 
+    def visit_let_node(self, node: syntax.RacketLetNode) -> str:
+        local_definitions = " ".join(
+            f"({self.visit(name)} {self.visit(expression)})" for name, expression in node.local_definitions
+        )
+        return f"({node.type.value} ({local_definitions}) {self.visit(node.expression)})"
+
     def visit_local_node(self, node: syntax.RacketLocalNode) -> str:
         return f"(local ({' '.join(map(self.visit, node.definitions))}) {self.visit(node.expression)})"
 
