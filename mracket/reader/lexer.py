@@ -192,6 +192,7 @@ class Token:
 
 EOF_TOKEN = Token(type=TokenType.EOF, offset=-1, lineno=-1, colno=-1)
 DUMMY_TOKEN = cast(Token, None)
+DUMMY_ELSE_SYMBOL_TOKEN = Token(type=TokenType.SYMBOL, offset=-1, lineno=-1, colno=-1, source="else")
 DUMMY_LPAREN_TOKEN = Token(type=TokenType.LPAREN, offset=-1, lineno=-1, colno=-1, source="(")
 DUMMY_RPAREN_TOKEN = Token(type=TokenType.RPAREN, offset=-1, lineno=-1, colno=-1, source="(")
 

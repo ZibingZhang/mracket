@@ -18,6 +18,7 @@ from mracket.reader import lexer, parser, syntax
         [syntax.RacketLiteralNode, '"Hello, World!"'],
         [syntax.RacketNameNode, "identity"],
         [syntax.RacketCondNode, "(cond [#t 1])"],
+        [syntax.RacketCondNode, "(if #t 1 2)"],
         [syntax.RacketLambdaNode, "(lambda (x) 1)"],
         [syntax.RacketLetNode, "(let ((x 1)) x)"],
         [syntax.RacketLocalNode, "(local ((define x 1)) x)"],

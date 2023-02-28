@@ -138,6 +138,8 @@ class Parser:
 
         if self._is_cond_expression():
             return self._cond()
+        if self._is_if_expression():
+            return self._if()
         if self._is_lambda_expression():
             return self._lambda()
         if self._is_let_expression():
@@ -161,6 +163,22 @@ class Parser:
             branches.append(branch)
         rparen = self._eat(lexer.TokenType.RPAREN)
         return syntax.RacketCondNode(lparen=lparen, rparen=rparen, branches=branches)
+
+    def _if(self) -> syntax.RacketCondNode:
+        lparen = self._eat(lexer.TokenType.LPAREN)
+        self._eat(lexer.TokenType.SYMBOL)
+        condition = self._expression()
+        true_expression = self._expression()
+        false_expression = self._expression()
+        rparen = self._eat(lexer.TokenType.RPAREN)
+        return syntax.RacketCondNode(
+            lparen=lparen,
+            rparen=rparen,
+            branches=[
+                (condition, true_expression),
+                (syntax.RacketNameNode(token=lexer.DUMMY_ELSE_SYMBOL_TOKEN), false_expression),
+            ],
+        )
 
     def _lambda(self) -> syntax.RacketLambdaNode:
         lparen = self._eat(lexer.TokenType.LPAREN)
@@ -273,6 +291,9 @@ class Parser:
 
     def _is_cond_expression(self) -> bool:
         return self._is_special_expression("cond")
+
+    def _is_if_expression(self) -> bool:
+        return self._is_special_expression("if")
 
     def _is_lambda_expression(self) -> bool:
         return self._is_special_expression("\u03bb", "lambda")
