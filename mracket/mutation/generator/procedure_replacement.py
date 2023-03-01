@@ -29,7 +29,7 @@ class ProcedureReplacement(base.BaseMutationGenerator):
         for replacement in self.replacements[procedure_name]:
             new_node = syntax.RacketNameNode(token=lexer.Token.from_source(lexer.TokenType.SYMBOL, replacement))
             explanation = (
-                f"Replace procedure {procedure_name}"
+                f"Replace procedure `{procedure_name}'"
                 f" at line {procedure.token.lineno}, column {procedure.token.colno}"
                 f" with {replacement}"
             )

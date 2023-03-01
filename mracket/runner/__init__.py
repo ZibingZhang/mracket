@@ -9,7 +9,7 @@ import tempfile
 import uuid
 from collections.abc import Generator, Iterable
 
-from mracket import mutation
+from mracket import mutation, reader
 from mracket.mutation import applier, mutator
 from mracket.reader import lexer, parser, stringify, syntax
 from mracket.runner import result
@@ -30,22 +30,30 @@ class Runner:
         self.mutator = mutator_
         self.filename = filename
         self.source = source
+
         self.success = result.RunnerSuccess(filename)
+        self.result: result.RunnerResult = self.success
 
     @staticmethod
     def check_preconditions() -> None:
         """Check that the necessary preconditions have been met."""
         if shutil.which("racket") is None:
-            raise FileNotFoundError("Cannot find the racket executable.")
+            raise FileNotFoundError("Cannot find the racket executable")
 
     def run(self) -> None:
         """Evaluate the program and its mutants."""
-        self.check_file_exists(self.filename, self.source)
-        program = self.build_syntax_tree(self.filename, self.source)
-        self.success.unmodified_result = self.run_unmodified(program)
-        self.success.mutations = self.generate_mutations(self.mutator, program)
-        mutation_mutants = self.apply_mutations(program, self.success.mutations)
-        self.success.mutant_results = self.run_mutants(mutation_mutants)
+        try:
+            self.check_file_exists(self.filename, self.source)
+            program = self.build_syntax_tree(self.filename, self.source)
+            self.success.unmodified_result = self.run_unmodified(program)
+            self.success.mutations = self.generate_mutations(self.mutator, program)
+            mutation_mutants = self.apply_mutations(program, self.success.mutations)
+            self.success.mutant_results = self.run_mutants(mutation_mutants)
+        except result.RunnerFailure as e:
+            e.filename = self.filename
+            self.result = e
+        except BaseException as e:
+            self.result = result.RunnerFailure(reason=result.RunnerFailure.Reason.UNKNOWN_ERROR, cause=e)
 
     @staticmethod
     def check_file_exists(filename: str, source: str) -> None:
@@ -70,8 +78,11 @@ class Runner:
                 source = f.read()
         if not source.startswith(DRRACKET_PREFIX):
             raise result.RunnerFailure(reason=result.RunnerFailure.Reason.NOT_DRRACKETY)
-        tokens = lexer.Lexer().tokenize(source)
-        program = parser.Parser().parse(tokens)
+        try:
+            tokens = lexer.Lexer().tokenize(source)
+            program = parser.Parser().parse(tokens)
+        except reader.errors.ReaderError as e:
+            raise result.RunnerFailure(reason=result.RunnerFailure.Reason.READER_ERROR, cause=e)
         return program
 
     @staticmethod
@@ -94,9 +105,9 @@ class Runner:
             raise result.RunnerFailure(
                 reason=result.RunnerFailure.Reason.NON_ZERO_UNMODIFIED_RETURNCODE,
                 returncode=process.returncode,
-                stderr=stderr,
+                stderr=stderr.decode("utf-8"),
             )
-        unmodified_result = result.ProgramExecutionResult(stdout)
+        unmodified_result = result.ProgramExecutionResult(stdout.decode("utf-8"))
         if len(unmodified_result.failures) > 0:
             raise result.RunnerFailure(reason=result.RunnerFailure.Reason.UNMODIFIED_TEST_FAILURE)
         return unmodified_result
@@ -147,9 +158,13 @@ class Runner:
                 stdout, stderr = process.communicate()
                 Runner._delete_file(filename)
                 if process.returncode != 0 or len(stderr) > 0:
-                    yield result.MutantExecutionResult(mut=mut, returncode=process.returncode, stderr=stderr)
+                    yield result.MutantExecutionResult(
+                        mut=mut, returncode=process.returncode, stderr=stderr.decode("utf-8")
+                    )
                 else:
-                    yield result.MutantExecutionResult(mut=mut, returncode=process.returncode, stdout=stdout)
+                    yield result.MutantExecutionResult(
+                        mut=mut, returncode=process.returncode, stdout=stdout.decode("utf-8")
+                    )
 
     # https://docs.python.org/3/library/itertools.html#itertools-recipes
     @staticmethod

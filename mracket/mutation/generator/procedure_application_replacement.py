@@ -38,7 +38,7 @@ class ProcedureApplicationReplacement(base.BaseMutationGenerator):
 
         for new_node in self.replacements[procedure_name]:
             explanation = (
-                f"Replace procedure application of {procedure_name}"
+                f"Replace procedure application of `{procedure_name}'"
                 f" at line {procedure.token.lineno}, column {procedure.token.colno}"
                 f" with {self.stringifier.visit(new_node)}"
             )

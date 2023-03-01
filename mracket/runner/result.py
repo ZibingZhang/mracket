@@ -4,6 +4,7 @@ from __future__ import annotations
 import abc
 import dataclasses
 import enum
+import json
 import re
 from collections.abc import Iterator
 
@@ -13,6 +14,10 @@ from mracket import mutation
 class RunnerResult(metaclass=abc.ABCMeta):
     """A runner result."""
 
+    @abc.abstractmethod
+    def json(self) -> str:
+        ...
+
 
 class RunnerFailure(RunnerResult, Exception):
     """A runner failure."""
@@ -20,16 +25,30 @@ class RunnerFailure(RunnerResult, Exception):
     class Reason(enum.Enum):
         """Runner failure reason."""
 
+        READER_ERROR = "Reader unable to read program"
         NOT_DRRACKETY = "Program missing DrRacket prefix"
         NOT_WELL_FORMED_PROGRAM = "Program not well-formed"
         NON_ZERO_MUTANT_RETURNCODE = "Non-zero returncode when running mutant"
         NON_ZERO_UNMODIFIED_RETURNCODE = "Non-zero returncode when running unmodified source"
+        UNKNOWN_ERROR = "Unknown error"
         UNMODIFIED_TEST_FAILURE = "Test failure when running unmodified source"
 
     def __init__(self, reason: Reason, **kwargs) -> None:
         super(Exception, self).__init__(reason.value)
         self.reason = reason
         self.dict = kwargs
+        self.filename = ""
+
+    def json(self) -> str:
+        return json.dumps(
+            {
+                "execution-suceeded": False,
+                "filename": self.filename,
+                "reason": self.reason.value,
+                **self.dict,
+            },
+            indent=2,
+        )
 
 
 class RunnerSuccess(RunnerResult):
@@ -41,82 +60,87 @@ class RunnerSuccess(RunnerResult):
         self.unmodified_result: ProgramExecutionResult | None = None
         self.mutant_results: Iterator[MutantExecutionResult] | None = None
 
+        self._evaluated_mutant_results: list[MutantExecutionResult] = []
+        self._total = 0
+        self._killed = 0
+        self._execution_error = 0
+
+    def json(self) -> str:
+        self._evaluate_mutants()
+        mutation_results: list[dict[str, bool | str]] = []
+        for evaluated_mutant_result in self._evaluated_mutant_results:
+            mutation_result: dict[str, bool | str] = {"explanation": evaluated_mutant_result.mutation.explanation}
+            if evaluated_mutant_result.stderr != "":
+                mutation_result["execution-error"] = evaluated_mutant_result.stderr
+            else:
+                mutation_result["killed"] = len(evaluated_mutant_result.failures) > 0
+            mutation_results.append(mutation_result)
+
+        return json.dumps(
+            {
+                "execution-suceeded": True,
+                "filename": self.filename,
+                "summary": {"total": self._total, "killed": self._killed, "execution-error": self._execution_error},
+                "mutations": mutation_results,
+            },
+            indent=2,
+        )
+
     @property
     def score(self) -> MutationScore:
+        self._evaluate_mutants()
+        return MutationScore(total=self._total, killed=self._killed, execution_error=self._execution_error)
+
+    def _evaluate_mutants(self) -> None:
         if self.mutant_results is None:
-            return MutationScore(total=0, killed=0, execution_error=0)
+            return None
 
         killed = 0
         execution_error = 0
         i = -1
         for i, result in enumerate(self.mutant_results):
+            self._evaluated_mutant_results.append(result)
             if result.stderr:
                 execution_error += 1
             elif len(result.failures) > 0:
                 killed += 1
-        return MutationScore(total=i + 1, killed=killed, execution_error=execution_error)
 
-    def pprint(self) -> None:
-        if self.unmodified_result is not None:
-            print("===================================== ORIGINAL PROGRAM RESULT =====================================")
-            print(f"total: {self.unmodified_result.total}")
-            print(f"    passed: {self.unmodified_result.passed}")
-            print(f"    failed: {len(self.unmodified_result.failures)}")
-
-        if self.mutant_results is not None:
-            killed = 0
-            execution_error = 0
-            i = -1
-            print("======================================== MUTATION RESULTS =========================================")
-            for i, result in enumerate(self.mutant_results):
-                print(f"-------------------------------------- MUTATION {i + 1} --------------------------------------")
-                print(f"mutation: {result.mutation.explanation}")
-                if result.stderr:
-                    print(f"error: {result.stderr.decode('utf-8')}")
-                    execution_error += 1
-                else:
-                    print(f"total: {result.total}")
-                    print(f"    passed: {result.passed}")
-                    print(f"    failed: {len(result.failures)}")
-                    if len(result.failures) > 0:
-                        killed += 1
-
-            print("-------------------------------------- MUTATION SUMMARY --------------------------------------")
-            print(f"total: {i + 1}")
-            print(f"    killed: {killed}")
-            print(f"    execution errors: {execution_error}")
+        self._total = i + 1
+        self._killed = killed
+        self._execution_error = execution_error
+        self.mutant_results = None
 
 
 class ProgramExecutionResult:
     """A Racket program result."""
 
-    def __init__(self, stdout: bytes = b"") -> None:
+    def __init__(self, stdout: str = "") -> None:
         self.passed = -1
         self.failures: list[TestFailure] = []
-        self.output = stdout.decode("utf-8")
+        self.stdout = stdout
 
-        if "The test passed!" in self.output:
+        if "The test passed!" in self.stdout:
             self.passed = 1
             return
-        if "Both tests passed!" in self.output:
+        if "Both tests passed!" in self.stdout:
             self.passed = 2
             return
-        if re_match := re.search(r"(\d+) tests passed!", self.output):
+        if re_match := re.search(r"(\d+) tests passed!", self.stdout):
             self.passed = int(re_match.groups()[0])
             return
 
-        if "0 tests passed." in self.output:
+        if "0 tests passed." in self.stdout:
             self.passed = 0
-        elif re_match := re.search(r"(\d+) of the (\d+) tests failed.", self.output):
+        elif re_match := re.search(r"(\d+) of the (\d+) tests failed.", self.stdout):
             groups = re_match.groups()
             self.passed = int(groups[1]) - int(groups[0])
         else:
             return
 
-        if "Check failures:" in self.output:
+        if "Check failures:" in self.stdout:
             re_matchs = re.finditer(
                 r"Actual value │ (.*?) │ differs from │ (.*?) │, the expected value.*?line (\d+), column (\d+)",
-                self.output,
+                self.stdout,
                 re.DOTALL,
             )
             for re_match in re_matchs:
@@ -135,7 +159,7 @@ class ProgramExecutionResult:
 class MutantExecutionResult(ProgramExecutionResult):
     """A mutant Racket program result."""
 
-    def __init__(self, mut: mutation.Mutation, returncode: int, stdout: bytes = b"", stderr: bytes = b"") -> None:
+    def __init__(self, mut: mutation.Mutation, returncode: int, stdout: str = "", stderr: str = "") -> None:
         super().__init__(stdout)
         self.mutation = mut
         self.stderr = stderr
