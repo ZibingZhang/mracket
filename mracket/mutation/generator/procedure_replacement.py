@@ -27,19 +27,14 @@ class ProcedureReplacement(base.BaseMutationGenerator):
             return
 
         for replacement in self.replacements[procedure_name]:
-            new_node = syntax.RacketProcedureApplicationNode(
-                lparen=lexer.DUMMY_TOKEN,
-                rparen=lexer.DUMMY_TOKEN,
-                expressions=[syntax.RacketNameNode(token=lexer.Token.from_source(lexer.TokenType.SYMBOL, replacement))]
-                + node.expressions[1:],
-            )
+            new_node = syntax.RacketNameNode(token=lexer.Token.from_source(lexer.TokenType.SYMBOL, replacement))
             explanation = (
                 f"Replace procedure {procedure_name}"
                 f" at line {procedure.token.lineno}, column {procedure.token.colno}"
                 f" with {replacement}"
             )
             yield mutation.Mutation(
-                original=node,
+                original=procedure,
                 replacement=new_node,
                 explanation=explanation,
             )

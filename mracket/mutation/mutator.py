@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import itertools
-from collections.abc import Generator
+from collections.abc import Generator, Mapping
 
 from mracket import mutation
 from mracket.mutation.generator import base
@@ -15,8 +15,11 @@ class Mutator(syntax.RacketASTVisitor):
     For each node, it yields each mutation that each mutation generator generates.
     """
 
-    def __init__(self, generators: list[base.BaseMutationGenerator]) -> None:
+    def __init__(
+        self, generators: list[base.BaseMutationGenerator], name_specific_mutators: Mapping[str, Mutator] | None = None
+    ) -> None:
         self.generators = generators
+        self.name_specific_mutators = name_specific_mutators or {}
 
     def visit(self, node: syntax.RacketASTNode) -> Generator[mutation.Mutation, None, None]:
         for generator in self.generators:
@@ -39,9 +42,16 @@ class Mutator(syntax.RacketASTVisitor):
     def visit_name_definition_node(
         self, node: syntax.RacketNameDefinitionNode
     ) -> Generator[mutation.Mutation, None, None]:
-        for child_node in (node.name, node.expression):
-            for mut in self.visit(child_node):
+        name_specific_mutator = self.name_specific_mutators.get(node.name.token.source, None)
+        if name_specific_mutator is not None:
+            for mut in self.visit(node.name):
                 yield mut
+            for mut in name_specific_mutator.visit(node.expression):
+                yield mut
+        else:
+            for child_node in (node.name, node.expression):
+                for mut in self.visit(child_node):
+                    yield mut
 
     def visit_structure_definition_node(
         self, node: syntax.RacketStructureDefinitionNode
