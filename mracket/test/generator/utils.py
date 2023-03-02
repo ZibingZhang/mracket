@@ -18,7 +18,7 @@ def apply_generator(generator: base.BaseMutationGenerator, source: str) -> Gener
     """
     program = parser.Parser().parse(lexer.Lexer().tokenize(f"#lang racket\n{source}"))
     mutator_ = mutator.Mutator(generators=[generator])
-    return mutator_.visit(program)
+    return mutator_.generate_mutations(program)
 
 
 def assert_mutants(generator: base.BaseMutationGenerator, source: str, mutants: list[str]) -> None:
@@ -31,6 +31,6 @@ def assert_mutants(generator: base.BaseMutationGenerator, source: str, mutants: 
     program = parser.Parser().parse(lexer.Lexer().tokenize(f"#lang racket\n{source}"))
     mutator_ = mutator.Mutator(generators=[generator])
     for (_, actual_mutant), expected_mutant in zip(
-        applier.MutationApplier(program, list(mutator_.visit(program))).apply_mutations(), mutants
+        applier.MutationApplier(program, list(mutator_.generate_mutations(program))).visit(program), mutants
     ):
         assert actual_mutant == f"#lang racket\n{expected_mutant}"

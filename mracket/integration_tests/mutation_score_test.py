@@ -28,6 +28,6 @@ def test_single_generator(filename: str, mutation_generator: BaseMutationGenerat
     source = next(test.inputs.read_contents(filename))
     runner = Runner(Mutator([mutation_generator]), source=source)
     runner.run()
-    score = runner.success.score
+    score = runner.result.score
     assert score.total == total
     assert score.killed == killed

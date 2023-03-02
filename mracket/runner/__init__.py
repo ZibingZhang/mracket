@@ -3,13 +3,13 @@ from __future__ import annotations
 
 import itertools
 import os.path
-import shutil
 import subprocess
 import tempfile
 import uuid
 from collections.abc import Generator, Iterable
+from typing import cast
 
-from mracket import mutation, reader
+from mracket import logger, mutation, reader
 from mracket.mutation import applier, mutator
 from mracket.reader import lexer, parser, stringify, syntax
 from mracket.runner import result
@@ -24,36 +24,31 @@ class Runner:
     BATCH_SIZE = 10
     DIR = tempfile.gettempdir()
 
-    def __init__(self, mutator_: mutator.Mutator, filename: str = "", source: str = "") -> None:
-        assert filename == "" or source == ""
+    def __init__(self, mutator_: mutator.Mutator, filepath: str = "", source: str = "") -> None:
+        assert filepath == "" or source == ""
 
         self.mutator = mutator_
-        self.filename = filename
+        self.filepath = filepath
         self.source = source
 
-        self.success = result.RunnerSuccess(filename)
-        self.result: result.RunnerResult = self.success
-
-    @staticmethod
-    def check_preconditions() -> None:
-        """Check that the necessary preconditions have been met."""
-        if shutil.which("racket") is None:
-            raise FileNotFoundError("Cannot find the racket executable")
+        self.result: result.RunnerResult = cast(result.RunnerResult, None)
 
     def run(self) -> None:
         """Evaluate the program and its mutants."""
         try:
-            self.check_file_exists(self.filename, self.source)
-            program = self.build_syntax_tree(self.filename, self.source)
-            self.success.unmodified_result = self.run_unmodified(program)
-            self.success.mutations = self.generate_mutations(self.mutator, program)
-            mutation_mutants = self.apply_mutations(program, self.success.mutations)
-            self.success.mutant_results = self.run_mutants(mutation_mutants)
+            success = result.RunnerSuccess(filepath=self.filepath)
+            self.check_file_exists(self.filepath, self.source)
+            program = self.build_syntax_tree(self.filepath, self.source)
+            success.mutations = self.generate_mutations(self.mutator, program)
+            mutation_mutants = self.apply_mutations(program, success.mutations)
+            success.unmodified_result = self.run_unmodified(program)
+            success.mutant_results = self.run_mutants(mutation_mutants)
+            self.result = success
         except result.RunnerFailure as e:
-            e.filename = self.filename
+            e.filepath = self.filepath
             self.result = e
         except BaseException as e:
-            self.result = result.RunnerFailure(reason=result.RunnerFailure.Reason.UNKNOWN_ERROR, cause=e)
+            self.result = result.RunnerFailure(reason=result.RunnerFailure.Reason.UNKNOWN_ERROR, cause=str(e))
 
     @staticmethod
     def check_file_exists(filename: str, source: str) -> None:
@@ -66,51 +61,26 @@ class Runner:
             raise FileNotFoundError(f"{filename} not found.")
 
     @staticmethod
-    def build_syntax_tree(filename: str, source: str) -> syntax.RacketProgramNode:
+    def build_syntax_tree(filepath: str, source: str) -> syntax.RacketProgramNode:
         """Build an abstract syntax tree of the Racket program.
 
-        :param filename: Racket program filename
+        :param filepath: Racket program filepath
         :param source: Racket program source
         :return: A program abstract syntax tree
         """
         if source == "":
-            with open(filename) as f:
+            with open(filepath) as f:
                 source = f.read()
         if not source.startswith(DRRACKET_PREFIX):
             raise result.RunnerFailure(reason=result.RunnerFailure.Reason.NOT_DRRACKETY)
         try:
+            logger.LOGGER.debug("Tokenizing")
             tokens = lexer.Lexer().tokenize(source)
+            logger.LOGGER.debug("Parsing")
             program = parser.Parser().parse(tokens)
         except reader.errors.ReaderError as e:
-            raise result.RunnerFailure(reason=result.RunnerFailure.Reason.READER_ERROR, cause=e)
+            raise result.RunnerFailure(reason=result.RunnerFailure.Reason.READER_ERROR, cause=str(e))
         return program
-
-    @staticmethod
-    def run_unmodified(program: syntax.RacketProgramNode) -> result.ProgramExecutionResult:
-        """Run the original program.
-
-        The source code is not being run but rather the stringified program. The reason
-        is that we want the positions of the errors, if any exist, to be the same
-        between the original and the mutants.
-
-        :param program: A Racket program
-        :return: Result of running the unmodified program
-        """
-        filename = Runner._random_filename()
-        Runner._create_file(filename, stringify.Stringifier().visit(program))
-        process = Runner._run_program(filename)
-        stdout, stderr = process.communicate()
-        Runner._delete_file(filename)
-        if process.returncode != 0 or len(stderr) > 0:
-            raise result.RunnerFailure(
-                reason=result.RunnerFailure.Reason.NON_ZERO_UNMODIFIED_RETURNCODE,
-                returncode=process.returncode,
-                stderr=stderr.decode("utf-8"),
-            )
-        unmodified_result = result.ProgramExecutionResult(stdout.decode("utf-8"))
-        if len(unmodified_result.failures) > 0:
-            raise result.RunnerFailure(reason=result.RunnerFailure.Reason.UNMODIFIED_TEST_FAILURE)
-        return unmodified_result
 
     @staticmethod
     def generate_mutations(mutator_: mutator.Mutator, program: syntax.RacketProgramNode) -> list[mutation.Mutation]:
@@ -120,8 +90,10 @@ class Runner:
         :param program: A program to be mutated
         :return: List of mutations
         """
-        mutations = mutator_.visit(program)
-        return list(mutations)
+        logger.LOGGER.debug("Generating mutations")
+        mutations = list(mutator_.generate_mutations(program))
+        logger.LOGGER.debug(f"Generated {len(mutations)} mutations")
+        return mutations
 
     @staticmethod
     def apply_mutations(
@@ -138,6 +110,34 @@ class Runner:
         return mutation_mutants
 
     @staticmethod
+    def run_unmodified(program: syntax.RacketProgramNode) -> result.ProgramExecutionResult:
+        """Run the original program.
+
+        The source code is not being run but rather the stringified program. The reason
+        is that we want the positions of the errors, if any exist, to be the same
+        between the original and the mutants.
+
+        :param program: A Racket program
+        :return: Result of running the unmodified program
+        """
+        logger.LOGGER.debug("Running the unmodified program")
+        filepath = Runner._random_filename()
+        Runner._create_file(filepath, stringify.Stringifier().visit(program))
+        process = Runner._run_program(filepath)
+        stdout, stderr = process.communicate()
+        Runner._delete_file(filepath)
+        if process.returncode != 0 or len(stderr) > 0:
+            raise result.RunnerFailure(
+                reason=result.RunnerFailure.Reason.NON_ZERO_UNMODIFIED_RETURNCODE,
+                returncode=process.returncode,
+                stderr=stderr.decode("utf-8"),
+            )
+        unmodified_result = result.ProgramExecutionResult(stdout.decode("utf-8"))
+        if len(unmodified_result.failures) > 0:
+            raise result.RunnerFailure(reason=result.RunnerFailure.Reason.UNMODIFIED_TEST_FAILURE)
+        return unmodified_result
+
+    @staticmethod
     def run_mutants(
         mutation_mutants: Iterable[tuple[mutation.Mutation, str]]
     ) -> Generator[result.MutantExecutionResult, None, None]:
@@ -146,6 +146,7 @@ class Runner:
         :param mutation_mutants: An iterator of mutation-mutant pairs
         :return: Generator of mutant execution results
         """
+        logger.LOGGER.debug("Running the mutated programs")
         for batch in Runner._batched(mutation_mutants):
             filenames = [Runner._random_filename() for _ in range(Runner.BATCH_SIZE)]
             mutation_processes = []
@@ -178,15 +179,15 @@ class Runner:
         return os.path.join(Runner.DIR, str(uuid.uuid4()))
 
     @staticmethod
-    def _create_file(filename: str, source: str) -> None:
-        with open(filename, "w") as f:
+    def _create_file(filepath: str, source: str) -> None:
+        with open(filepath, "w") as f:
             f.write(f"{source}\n{PROGRAM_SUFFIX}")
 
     @staticmethod
-    def _delete_file(filename: str) -> None:
-        os.remove(filename)
+    def _delete_file(filepath: str) -> None:
+        os.remove(filepath)
 
     @staticmethod
-    def _run_program(filename: str) -> subprocess.Popen:
-        process = subprocess.Popen(["racket", filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    def _run_program(filepath: str) -> subprocess.Popen:
+        process = subprocess.Popen(["racket", filepath], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return process

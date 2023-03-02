@@ -4,7 +4,6 @@ from __future__ import annotations
 import abc
 import dataclasses
 import enum
-import json
 import re
 from collections.abc import Iterator
 
@@ -14,9 +13,19 @@ from mracket import mutation
 class RunnerResult(metaclass=abc.ABCMeta):
     """A runner result."""
 
-    @abc.abstractmethod
-    def json(self) -> str:
-        ...
+    def __init__(self, filepath: str, execution_succeeded: bool) -> None:
+        self.filepath = filepath
+        self.execution_succeeded = execution_succeeded
+
+    @property
+    def score(self) -> MutationScore:
+        return MutationScore(-1, -1, -1)
+
+    def to_dict(self) -> dict:
+        return {
+            "filepath": self.filepath,
+            "execution-succeeded": self.execution_succeeded,
+        }
 
 
 class RunnerFailure(RunnerResult, Exception):
@@ -34,28 +43,24 @@ class RunnerFailure(RunnerResult, Exception):
         UNMODIFIED_TEST_FAILURE = "Test failure when running unmodified source"
 
     def __init__(self, reason: Reason, **kwargs) -> None:
-        super(Exception, self).__init__(reason.value)
+        RunnerResult.__init__(self, filepath="", execution_succeeded=False)
+        Exception.__init__(self, reason.value)
         self.reason = reason
         self.dict = kwargs
-        self.filename = ""
 
-    def json(self) -> str:
-        return json.dumps(
-            {
-                "execution-suceeded": False,
-                "filename": self.filename,
-                "reason": self.reason.value,
-                **self.dict,
-            },
-            indent=2,
-        )
+    def to_dict(self) -> dict:
+        return {
+            **RunnerResult.to_dict(self),
+            "reason": self.reason.value,
+            **self.dict,
+        }
 
 
 class RunnerSuccess(RunnerResult):
     """A runner success."""
 
-    def __init__(self, filename: str) -> None:
-        self.filename = filename
+    def __init__(self, filepath: str) -> None:
+        super().__init__(filepath=filepath, execution_succeeded=True)
         self.mutations: list[mutation.Mutation] = []
         self.unmodified_result: ProgramExecutionResult | None = None
         self.mutant_results: Iterator[MutantExecutionResult] | None = None
@@ -65,7 +70,12 @@ class RunnerSuccess(RunnerResult):
         self._killed = 0
         self._execution_error = 0
 
-    def json(self) -> str:
+    @property
+    def score(self) -> MutationScore:
+        self._evaluate_mutants()
+        return MutationScore(total=self._total, killed=self._killed, execution_error=self._execution_error)
+
+    def to_dict(self) -> dict:
         self._evaluate_mutants()
         mutation_results: list[dict[str, bool | str]] = []
         for evaluated_mutant_result in self._evaluated_mutant_results:
@@ -76,20 +86,11 @@ class RunnerSuccess(RunnerResult):
                 mutation_result["killed"] = len(evaluated_mutant_result.failures) > 0
             mutation_results.append(mutation_result)
 
-        return json.dumps(
-            {
-                "execution-suceeded": True,
-                "filename": self.filename,
-                "summary": {"total": self._total, "killed": self._killed, "execution-error": self._execution_error},
-                "mutations": mutation_results,
-            },
-            indent=2,
-        )
-
-    @property
-    def score(self) -> MutationScore:
-        self._evaluate_mutants()
-        return MutationScore(total=self._total, killed=self._killed, execution_error=self._execution_error)
+        return {
+            **super().to_dict(),
+            "summary": {"total": self._total, "killed": self._killed, "execution-error": self._execution_error},
+            "mutations": mutation_results,
+        }
 
     def _evaluate_mutants(self) -> None:
         if self.mutant_results is None:

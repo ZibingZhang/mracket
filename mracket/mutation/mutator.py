@@ -21,6 +21,9 @@ class Mutator(syntax.RacketASTVisitor):
         self.generators = generators
         self.name_specific_mutators = name_specific_mutators or {}
 
+    def generate_mutations(self, node: syntax.RacketProgramNode) -> Generator[mutation.Mutation, None, None]:
+        return self.visit(node)
+
     def visit(self, node: syntax.RacketASTNode) -> Generator[mutation.Mutation, None, None]:
         for generator in self.generators:
             for mut in generator.visit(node):

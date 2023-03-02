@@ -14,7 +14,7 @@ def test_name_specific_mutator() -> None:
     source = "#lang racket\n(+ 1)\n(define (f) (+ 1))"
     program = Parser().parse(Lexer().tokenize(source))
 
-    mutations = list(mutator.visit(program))
+    mutations = list(mutator.generate_mutations(program))
 
     assert len(mutations) == 2
 
