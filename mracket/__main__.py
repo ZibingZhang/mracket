@@ -5,8 +5,9 @@ import os
 import shutil
 import sys
 
-from mracket import logger, runner
+from mracket import runner
 from mracket.mutation import generator, mutator
+from mracket.runner import logger
 
 
 def parse_arguments() -> argparse.Namespace:

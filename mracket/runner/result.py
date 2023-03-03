@@ -2,12 +2,11 @@
 from __future__ import annotations
 
 import abc
-import dataclasses
 import enum
-import re
 from collections.abc import Iterator
 
 from mracket import mutation
+from mracket.runner import execution, score
 
 
 class RunnerResult(metaclass=abc.ABCMeta):
@@ -18,8 +17,8 @@ class RunnerResult(metaclass=abc.ABCMeta):
         self.execution_succeeded = execution_succeeded
 
     @property
-    def score(self) -> MutationScore:
-        return MutationScore(-1, -1, -1)
+    def score(self) -> score.MutationScore:
+        return score.MutationScore(-1, -1, -1)
 
     def to_dict(self) -> dict:
         return {
@@ -62,18 +61,18 @@ class RunnerSuccess(RunnerResult):
     def __init__(self, filepath: str) -> None:
         super().__init__(filepath=filepath, execution_succeeded=True)
         self.mutations: list[mutation.Mutation] = []
-        self.unmodified_result: ProgramExecutionResult | None = None
-        self.mutant_results: Iterator[MutantExecutionResult] | None = None
+        self.unmodified_result: execution.ProgramOutput | None = None
+        self.mutant_results: Iterator[execution.MutantOutput] | None = None
 
-        self._evaluated_mutant_results: list[MutantExecutionResult] = []
+        self._evaluated_mutant_results: list[execution.MutantOutput] = []
         self._total = 0
         self._killed = 0
         self._execution_error = 0
 
     @property
-    def score(self) -> MutationScore:
+    def score(self) -> score.MutationScore:
         self._evaluate_mutants()
-        return MutationScore(total=self._total, killed=self._killed, execution_error=self._execution_error)
+        return score.MutationScore(total=self._total, killed=self._killed, execution_error=self._execution_error)
 
     def to_dict(self) -> dict:
         self._evaluate_mutants()
@@ -86,11 +85,14 @@ class RunnerSuccess(RunnerResult):
                 mutation_result["killed"] = len(evaluated_mutant_result.failures) > 0
             mutation_results.append(mutation_result)
 
-        return {
+        dct: dict = {
             **super().to_dict(),
-            "summary": {"total": self._total, "killed": self._killed, "execution-error": self._execution_error},
+            "summary": {"total": self._total, "killed": self._killed},
             "mutations": mutation_results,
         }
+        if self._execution_error > 0:
+            dct["summary"]["execution-error"] = self._execution_error
+        return dct
 
     def _evaluate_mutants(self) -> None:
         if self.mutant_results is None:
@@ -110,80 +112,3 @@ class RunnerSuccess(RunnerResult):
         self._killed = killed
         self._execution_error = execution_error
         self.mutant_results = None
-
-
-class ProgramExecutionResult:
-    """A Racket program result."""
-
-    def __init__(self, stdout: str = "") -> None:
-        self.passed = -1
-        self.failures: list[TestFailure] = []
-        self.stdout = stdout
-
-        if "The test passed!" in self.stdout:
-            self.passed = 1
-            return
-        if "Both tests passed!" in self.stdout:
-            self.passed = 2
-            return
-        if re_match := re.search(r"(\d+) tests passed!", self.stdout):
-            self.passed = int(re_match.groups()[0])
-            return
-
-        if "0 tests passed." in self.stdout:
-            self.passed = 0
-        elif re_match := re.search(r"(\d+) of the (\d+) tests failed.", self.stdout):
-            groups = re_match.groups()
-            self.passed = int(groups[1]) - int(groups[0])
-        else:
-            return
-
-        if "Check failures:" in self.stdout:
-            re_matchs = re.finditer(
-                r"Actual value │ (.*?) │ differs from │ (.*?) │, the expected value.*?line (\d+), column (\d+)",
-                self.stdout,
-                re.DOTALL,
-            )
-            for re_match in re_matchs:
-                groups = re_match.groups()
-                actual = groups[0]
-                expected = groups[1]
-                lineno = int(groups[2])
-                colno = int(groups[3])
-                self.failures.append(TestFailure(actual, expected, lineno, colno))
-
-    @property
-    def total(self) -> int:
-        return self.passed + len(self.failures)
-
-
-class MutantExecutionResult(ProgramExecutionResult):
-    """A mutant Racket program result."""
-
-    def __init__(self, mut: mutation.Mutation, returncode: int, stdout: str = "", stderr: str = "") -> None:
-        super().__init__(stdout)
-        self.mutation = mut
-        self.stderr = stderr
-        self.returncode = returncode
-
-
-@dataclasses.dataclass
-class TestFailure:
-    """A test-case failure."""
-
-    actual: str
-    expected: str
-    lineno: int
-    colno: int
-
-    def __str__(self) -> str:
-        return f"Actual value {self.actual} differs from {self.expected}, the expected value"
-
-
-@dataclasses.dataclass
-class MutationScore:
-    """A mutation score."""
-
-    total: int
-    killed: int
-    execution_error: int

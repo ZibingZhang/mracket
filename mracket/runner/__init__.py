@@ -9,10 +9,10 @@ import uuid
 from collections.abc import Generator, Iterable
 from typing import cast
 
-from mracket import logger, mutation, reader
+from mracket import mutation, reader
 from mracket.mutation import applier, mutator
 from mracket.reader import lexer, parser, stringify, syntax
-from mracket.runner import result
+from mracket.runner import execution, logger, result
 
 DRRACKET_PREFIX = ";; The first three lines of this file were inserted by DrRacket."
 PROGRAM_SUFFIX = "(require test-engine/racket-tests)\n(test)"
@@ -110,7 +110,7 @@ class Runner:
         return mutation_mutants
 
     @staticmethod
-    def run_unmodified(program: syntax.RacketProgramNode) -> result.ProgramExecutionResult:
+    def run_unmodified(program: syntax.RacketProgramNode) -> execution.ProgramOutput:
         """Run the original program.
 
         The source code is not being run but rather the stringified program. The reason
@@ -132,7 +132,7 @@ class Runner:
                 returncode=process.returncode,
                 stderr=stderr.decode("utf-8"),
             )
-        unmodified_result = result.ProgramExecutionResult(stdout.decode("utf-8"))
+        unmodified_result = execution.ProgramOutput(stdout.decode("utf-8"))
         if len(unmodified_result.failures) > 0:
             raise result.RunnerFailure(reason=result.RunnerFailure.Reason.UNMODIFIED_TEST_FAILURE)
         return unmodified_result
@@ -140,7 +140,7 @@ class Runner:
     @staticmethod
     def run_mutants(
         mutation_mutants: Iterable[tuple[mutation.Mutation, str]]
-    ) -> Generator[result.MutantExecutionResult, None, None]:
+    ) -> Generator[execution.MutantOutput, None, None]:
         """Run the mutants.
 
         :param mutation_mutants: An iterator of mutation-mutant pairs
@@ -159,13 +159,9 @@ class Runner:
                 stdout, stderr = process.communicate()
                 Runner._delete_file(filename)
                 if process.returncode != 0 or len(stderr) > 0:
-                    yield result.MutantExecutionResult(
-                        mut=mut, returncode=process.returncode, stderr=stderr.decode("utf-8")
-                    )
+                    yield execution.MutantOutput(mut=mut, returncode=process.returncode, stderr=stderr.decode("utf-8"))
                 else:
-                    yield result.MutantExecutionResult(
-                        mut=mut, returncode=process.returncode, stdout=stdout.decode("utf-8")
-                    )
+                    yield execution.MutantOutput(mut=mut, returncode=process.returncode, stdout=stdout.decode("utf-8"))
 
     # https://docs.python.org/3/library/itertools.html#itertools-recipes
     @staticmethod
