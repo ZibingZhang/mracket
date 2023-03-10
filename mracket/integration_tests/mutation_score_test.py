@@ -25,9 +25,10 @@ from mracket.runner import Runner
 )
 @pytest.mark.slow
 def test_single_generator(filename: str, mutation_generator: BaseMutationGenerator, total: int, killed: int) -> None:
-    source = next(test.inputs.read_contents(filename))
-    runner = Runner(Mutator([mutation_generator]), source=source)
+    filepath = next(test.inputs.file_paths(filename))
+    runner = Runner(Mutator([mutation_generator]), filepath)
     runner.run()
     score = runner.result.score
+    assert score is not None
     assert score.total == total
     assert score.killed == killed

@@ -91,4 +91,4 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install ".[mypy]"
       - name: Check
-        run: python -m mypy --explicit-package-bases mracket
+        run: python -m mypy --explicit-package-bases --ignore-missing-imports mracket

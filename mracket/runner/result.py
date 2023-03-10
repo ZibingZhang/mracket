@@ -6,7 +6,7 @@ import enum
 from collections.abc import Iterator
 
 from mracket import mutation
-from mracket.runner import execution, score
+from mracket.runner import output, score
 
 
 class RunnerResult(metaclass=abc.ABCMeta):
@@ -17,8 +17,8 @@ class RunnerResult(metaclass=abc.ABCMeta):
         self.execution_succeeded = execution_succeeded
 
     @property
-    def score(self) -> score.MutationScore:
-        return score.MutationScore(-1, -1, -1)
+    def score(self) -> score.MutationScore | None:
+        return None
 
     def to_dict(self) -> dict:
         return {
@@ -61,10 +61,10 @@ class RunnerSuccess(RunnerResult):
     def __init__(self, filepath: str) -> None:
         super().__init__(filepath=filepath, execution_succeeded=True)
         self.mutations: list[mutation.Mutation] = []
-        self.unmodified_result: execution.ProgramOutput | None = None
-        self.mutant_results: Iterator[execution.MutantOutput] | None = None
+        self.unmodified_result: output.ProgramOutput | None = None
+        self.mutant_results: Iterator[output.MutantOutput] | None = None
 
-        self._evaluated_mutant_results: list[execution.MutantOutput] = []
+        self._evaluated_mutant_results: list[output.MutantOutput] = []
         self._total = 0
         self._killed = 0
         self._execution_error = 0
@@ -82,7 +82,7 @@ class RunnerSuccess(RunnerResult):
             if evaluated_mutant_result.stderr != "":
                 mutation_result["execution-error"] = evaluated_mutant_result.stderr
             else:
-                mutation_result["killed"] = len(evaluated_mutant_result.failures) > 0
+                mutation_result["killed"] = evaluated_mutant_result.failed > 0
             mutation_results.append(mutation_result)
 
         dct: dict = {
@@ -105,7 +105,7 @@ class RunnerSuccess(RunnerResult):
             self._evaluated_mutant_results.append(result)
             if result.stderr:
                 execution_error += 1
-            elif len(result.failures) > 0:
+            elif result.failed > 0:
                 killed += 1
 
         self._total = i + 1

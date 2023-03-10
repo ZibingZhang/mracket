@@ -4,10 +4,28 @@ import logging
 import os
 import shutil
 import sys
+import traceback
+
+import strictyaml
 
 from mracket import runner
 from mracket.mutation import generator, mutator
 from mracket.runner import logger
+
+GENERATOR_SCHEMA = strictyaml.MapCombined({"type": strictyaml.Str()}, strictyaml.Str(), strictyaml.Any())
+MUTATOR_SCHEMA = strictyaml.Seq(GENERATOR_SCHEMA)
+SCHEMA = strictyaml.Map(
+    {
+        "mutators": strictyaml.Map(
+            {
+                "general": MUTATOR_SCHEMA,
+                strictyaml.Optional("procedure-specific"): strictyaml.Seq(
+                    strictyaml.Map({"procedure-name": strictyaml.Str(), "mutator": MUTATOR_SCHEMA})
+                ),
+            }
+        ),
+    }
+)
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -44,6 +62,8 @@ def check_preconditions(arguments: argparse.Namespace) -> None:
 
 
 def build_mutator(arguments: argparse.Namespace) -> mutator.Mutator:
+    with open(arguments.config) as f:
+        _ = strictyaml.load(f.read(), SCHEMA)
     return mutator.Mutator(
         [
             generator.ProcedureReplacement(
@@ -57,10 +77,7 @@ def build_mutator(arguments: argparse.Namespace) -> mutator.Mutator:
 
 
 def build_runner(arguments: argparse.Namespace, mutator_: mutator.Mutator) -> runner.Runner:
-    return runner.Runner(
-        mutator_,
-        filepath=arguments.filepath,
-    )
+    return runner.Runner(mutator_, arguments.filepath)
 
 
 if __name__ == "__main__":
@@ -74,8 +91,10 @@ if __name__ == "__main__":
         with open(arguments.output, mode="w", encoding="utf-8") as f:
             f.write(json.dumps(result_dict, indent=2))
     except (FileExistsError, FileNotFoundError) as e:
-        print(e)
+        logger.LOGGER.debug(traceback.format_exc())
+        logger.LOGGER.info(e)
         sys.exit(1)
     except BaseException as e:
-        print(e)
+        logger.LOGGER.debug(traceback.format_exc())
+        logger.LOGGER.info(e)
         sys.exit(2)

@@ -66,7 +66,7 @@ def test_stringify_idempotent() -> None:
 
 @pytest.mark.slow
 def test_racket_output_unchanged() -> None:
-    for file_name in test.inputs.file_names():
+    for file_name in test.inputs.file_paths(r"^(?!test-case).+"):
         original_process = subprocess.Popen(["racket", file_name], stdout=subprocess.PIPE)
 
         with open(file_name) as f:
