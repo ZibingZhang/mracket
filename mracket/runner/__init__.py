@@ -139,10 +139,10 @@ class Runner:
         for batch in Runner._batched(mutants):
             filenames = [Runner._random_filename() for _ in range(Runner.BATCH_SIZE)]
             mutation_processes = []
-            for (mut, mutant), filename in zip(batch, filenames):
-                Runner._create_file(filename, mutant)
+            for mutant, filename in zip(batch, filenames):
+                Runner._create_file(filename, mutant.source)
                 process = Runner._run_program(filename)
-                mutation_processes.append((mut, process))
+                mutation_processes.append((mutant.mutation, process))
 
             for (mut, process), filename in zip(mutation_processes, filenames):
                 stdout, stderr = process.communicate()
