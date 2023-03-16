@@ -62,6 +62,7 @@ class RunnerSuccess(RunnerResult):
         super().__init__(filepath=filepath, execution_succeeded=True)
         self.mutations: list[mutation.Mutation] = []
         self.unmodified_result: output.ProgramOutput | None = None
+        # TODO: fix this type and use a property, after evaluation of the results, it should be cached somewhere
         self.mutant_results: Iterator[output.MutantOutput] | None = None
 
         self._evaluated_mutant_results: list[output.MutantOutput] = []

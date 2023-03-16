@@ -38,8 +38,8 @@ class Runner:
             success.unmodified_result = self.run_unmodified(self.filepath)
             program = self.build_syntax_tree(self.filepath)
             success.mutations = self.generate_mutations(self.mutator, program)
-            mutation_mutants = self.apply_mutations(program, success.mutations)
-            success.mutant_results = self.run_mutants(mutation_mutants)
+            mutants = self.apply_mutations(program, success.mutations)
+            success.mutant_results = self.run_mutants(mutants)
             self.result = success
         except result.RunnerFailure as e:
             e.filepath = self.filepath
@@ -117,7 +117,7 @@ class Runner:
     @staticmethod
     def apply_mutations(
         program: syntax.RacketProgramNode, mutations: Iterable[mutation.Mutation]
-    ) -> Generator[tuple[mutation.Mutation, str], None, None]:
+    ) -> Generator[mutation.Mutant, None, None]:
         """Apply the mutations.
 
         :param program: A program to mutate
@@ -129,16 +129,14 @@ class Runner:
         return mutation_mutants
 
     @staticmethod
-    def run_mutants(
-        mutation_mutants: Iterable[tuple[mutation.Mutation, str]]
-    ) -> Generator[output.MutantOutput, None, None]:
+    def run_mutants(mutants: Iterable[mutation.Mutant]) -> Generator[output.MutantOutput, None, None]:
         """Run the mutants.
 
-        :param mutation_mutants: An iterator of mutation-mutant pairs
+        :param mutants: An iterator of mutants pairs
         :return: Generator of mutant execution results
         """
         logger.LOGGER.debug("Running the mutated programs")
-        for batch in Runner._batched(mutation_mutants):
+        for batch in Runner._batched(mutants):
             filenames = [Runner._random_filename() for _ in range(Runner.BATCH_SIZE)]
             mutation_processes = []
             for (mut, mutant), filename in zip(batch, filenames):

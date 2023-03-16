@@ -208,15 +208,7 @@ class Lexer:
         self._lineno = -1
         self._colno = -1
 
-    def tokenize(self, source: str) -> list[Token]:
-        """Convert the source program into tokens.
-
-        :param source: Racket source code
-        :return: List of tokens
-        """
-        return list(self.lazy_tokenize(source))
-
-    def lazy_tokenize(self, source: str) -> Generator[Token, None, None]:
+    def tokenize(self, source: str) -> Generator[Token, None, None]:
         """Convert the source program into tokens.
 
         :param source: Racket source code

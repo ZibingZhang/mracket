@@ -13,3 +13,11 @@ class Mutation:
     original: syntax.RacketASTNode
     replacement: syntax.RacketASTNode
     explanation: str
+
+
+@dataclasses.dataclass(frozen=True)
+class Mutant:
+    """A program mutant."""
+
+    mutation: Mutation
+    source: str

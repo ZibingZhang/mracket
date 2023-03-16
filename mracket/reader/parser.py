@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from typing import Literal
 
 from mracket.reader import errors, lexer, syntax
@@ -43,14 +44,14 @@ class Parser:
         self._current_token = lexer.EOF_TOKEN
         self._lparen_stack: list[lexer.Token] = []
 
-    def parse(self, tokens: list[lexer.Token]) -> syntax.RacketProgramNode:
+    def parse(self, tokens: Iterable[lexer.Token]) -> syntax.RacketProgramNode:
         """Convert the tokens into a Racket program abstract syntax tree.
 
-        :param tokens: List of tokens
+        :param tokens: Iterable collection of tokens
         :return: Racket program abstract syntax tree
         """
-        self._token_stream = tokens.copy()
-        self._current_token = self._token_stream.pop(0)
+        self._token_stream = list(tokens)
+        self._current_token = first_token = self._token_stream.pop(0)
         self._lparen_stack = []
 
         statements = []
@@ -64,15 +65,15 @@ class Parser:
         if reader_directive is None:
             raise errors.ExpectedReaderDirective(lexer.EOF_TOKEN)
 
-        return syntax.RacketProgramNode(token=tokens[0], reader_directive=reader_directive, statements=statements)
+        return syntax.RacketProgramNode(token=first_token, reader_directive=reader_directive, statements=statements)
 
-    def parse_expression(self, tokens: list[lexer.Token]) -> syntax.RacketExpressionNode:
+    def parse_expression(self, tokens: Iterable[lexer.Token]) -> syntax.RacketExpressionNode:
         """Convert the tokens into an expression abstract syntax tree.
 
-        :param tokens: List of tokens
+        :param tokens: Iterable collection of tokens
         :return: expresison abstract syntax tree
         """
-        self._token_stream = tokens.copy()
+        self._token_stream = list(tokens)
         self._current_token = self._token_stream.pop(0)
         self._lparen_stack = []
         return self._expression()
