@@ -33,11 +33,12 @@ class RunnerFailure(RunnerResult, Exception):
     class Reason(enum.Enum):
         """Runner failure reason."""
 
-        READER_ERROR = "Reader unable to read program"
         NOT_DRRACKETY = "Program missing DrRacket prefix"
         NOT_WELL_FORMED_PROGRAM = "Program not well-formed"
         NON_ZERO_MUTANT_RETURNCODE = "Non-zero returncode when running mutant"
         NON_ZERO_UNMODIFIED_RETURNCODE = "Non-zero returncode when running unmodified source"
+        READER_ERROR = "Reader unable to read program"
+        TIMEOUT = "Program timeout"
         UNKNOWN_ERROR = "Unknown error"
         UNMODIFIED_TEST_FAILURE = "Test failure when running unmodified source"
 

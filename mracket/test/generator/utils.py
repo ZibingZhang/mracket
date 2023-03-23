@@ -9,7 +9,7 @@ from mracket.mutation.generator import base
 from mracket.reader import lexer, parser
 
 
-def apply_generator(generator: base.BaseMutationGenerator, source: str) -> Generator[mutation.Mutation, None, None]:
+def apply_generator(generator: base.MutationGenerator, source: str) -> Generator[mutation.Mutation, None, None]:
     """Apply the mutation generator to the source code.
 
     :param generator: Muation generator
@@ -21,7 +21,7 @@ def apply_generator(generator: base.BaseMutationGenerator, source: str) -> Gener
     return mutator_.generate_mutations(program)
 
 
-def assert_mutants(generator: base.BaseMutationGenerator, source: str, mutants: list[str]) -> None:
+def assert_mutants(generator: base.MutationGenerator, source: str, mutants: list[str]) -> None:
     """Assert the generator produces the mutants from the source.
 
     :param generator: Mutation generator

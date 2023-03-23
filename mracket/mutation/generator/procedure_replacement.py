@@ -8,7 +8,7 @@ from mracket.mutation.generator import base
 from mracket.reader import lexer, syntax
 
 
-class ProcedureReplacement(base.BaseMutationGenerator):
+class ProcedureReplacement(base.MutationGenerator):
     """Replaces procedures with its replacements."""
 
     def __init__(self, replacements: Mapping[str, list[str]]) -> None:

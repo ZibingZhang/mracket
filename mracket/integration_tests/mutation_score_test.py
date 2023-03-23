@@ -8,7 +8,7 @@ from mracket.mutation.generator import (
     ProcedureApplicationReplacement,
     ProcedureReplacement,
 )
-from mracket.mutation.generator.base import BaseMutationGenerator
+from mracket.mutation.generator.base import MutationGenerator
 from mracket.mutation.mutator import Mutator
 from mracket.runner import Runner
 
@@ -24,7 +24,7 @@ from mracket.runner import Runner
     ],
 )
 @pytest.mark.slow
-def test_single_generator(filename: str, mutation_generator: BaseMutationGenerator, total: int, killed: int) -> None:
+def test_single_generator(filename: str, mutation_generator: MutationGenerator, total: int, killed: int) -> None:
     filepath = next(test.inputs.file_paths(filename))
     runner = Runner(Mutator([mutation_generator]), filepath)
     runner.run()

@@ -46,17 +46,15 @@ def check_preconditions(arguments: argparse.Namespace) -> None:
 
 def build_mutator(arguments: argparse.Namespace) -> mutator.Mutator:
     with open(arguments.config) as f:
-        _ = f.read()
-    return mutator.Mutator(
-        [
-            generator.ProcedureReplacement(
-                {
-                    "+": ["-"],
-                    "-": ["+"],
-                }
-            )
-        ]
-    )
+        config = json.load(f)
+    generators: list[generator.MutationGenerator] = []
+    for generator_config in config["generators"]:
+        if generator_config["type"] == "procedure replacement":
+            generators.append(generator.ProcedureReplacement(generator_config["replacements"]))
+        elif generator_config["type"] == "procedure application replacement":
+            generators.append(generator.ProcedureApplicationReplacement(generator_config["replacements"]))
+        # TODO: raise an error
+    return mutator.Mutator(generators)
 
 
 def build_runner(arguments: argparse.Namespace, mutator_: mutator.Mutator) -> runner.Runner:
@@ -71,6 +69,7 @@ if __name__ == "__main__":
         runner_ = build_runner(arguments, mutator_)
         runner_.run()
         result_dict = runner_.result.to_dict()
+        logger.LOGGER.debug("Writing analysis to file")
         with open(arguments.output, mode="w", encoding="utf-8") as f:
             f.write(json.dumps(result_dict, indent=2))
     except (FileExistsError, FileNotFoundError) as e:

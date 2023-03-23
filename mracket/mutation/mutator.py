@@ -16,7 +16,7 @@ class Mutator(syntax.RacketASTVisitor):
     """
 
     def __init__(
-        self, generators: list[base.BaseMutationGenerator], name_specific_mutators: Mapping[str, Mutator] | None = None
+        self, generators: list[base.MutationGenerator], name_specific_mutators: Mapping[str, Mutator] | None = None
     ) -> None:
         self.generators = generators
         self.name_specific_mutators = name_specific_mutators or {}

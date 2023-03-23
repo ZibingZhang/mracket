@@ -95,14 +95,17 @@ class MutationApplier(syntax.RacketASTVisitor):
         yield
 
     def visit_cond_node(self, node: syntax.RacketCondNode) -> Generator[mutation.Mutant, None, None]:
-        branches = node.branches.copy()
         for i, (condition, expression) in enumerate(node.branches):
+            branches = node.branches.copy()
             for mut in self._get_mutations(condition):
                 node.branches[i] = (cast(syntax.RacketExpressionNode, mut.replacement), node.branches[i][1])
+                yield mutation.Mutant(mut, self.stringifier.visit(self.program))
             node.branches = branches
 
+            branches = node.branches.copy()
             for mut in self._get_mutations(expression):
                 node.branches[i] = (node.branches[i][0], cast(syntax.RacketExpressionNode, mut.replacement))
+                yield mutation.Mutant(mut, self.stringifier.visit(self.program))
             node.branches = branches
 
         for child_node in itertools.chain.from_iterable(node.branches):
@@ -113,6 +116,7 @@ class MutationApplier(syntax.RacketASTVisitor):
         for i, variable in enumerate(node.variables):
             for mut in self._get_mutations(variable):
                 node.variables[i] = cast(syntax.RacketNameNode, mut.replacement)
+                yield mutation.Mutant(mut, self.stringifier.visit(self.program))
             node.variables = variables
 
         expression = node.expression
@@ -125,17 +129,20 @@ class MutationApplier(syntax.RacketASTVisitor):
             yield from self.visit(child_node)
 
     def visit_let_node(self, node: syntax.RacketLetNode) -> Generator[mutation.Mutant, None, None]:
-        local_definitions = node.local_definitions.copy()
         for i, (name, expression) in enumerate(node.local_definitions):
+            local_definitions = node.local_definitions.copy()
             for mut in self._get_mutations(name):
                 node.local_definitions[i] = (cast(syntax.RacketNameNode, mut.replacement), node.local_definitions[i][1])
+                yield mutation.Mutant(mut, self.stringifier.visit(self.program))
             node.local_definitions = local_definitions
 
+            local_definitions = node.local_definitions.copy()
             for mut in self._get_mutations(expression):
                 node.local_definitions[i] = (
                     node.local_definitions[i][0],
                     cast(syntax.RacketExpressionNode, mut.replacement),
                 )
+                yield mutation.Mutant(mut, self.stringifier.visit(self.program))
             node.local_definitions = local_definitions
 
         expression = node.expression
@@ -152,6 +159,7 @@ class MutationApplier(syntax.RacketASTVisitor):
         for i, definition in enumerate(node.definitions):
             for mut in self._get_mutations(definition):
                 node.definitions[i] = cast(syntax.RacketDefinitionNode, mut.replacement)
+                yield mutation.Mutant(mut, self.stringifier.visit(self.program))
             node.definitions = definitions
 
         expression = node.expression

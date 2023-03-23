@@ -8,7 +8,7 @@ from mracket.mutation.generator import base
 from mracket.reader import lexer, parser, stringify, syntax
 
 
-class ProcedureApplicationReplacement(base.BaseMutationGenerator):
+class ProcedureApplicationReplacement(base.MutationGenerator):
     """Replaces procedure applications with expressions."""
 
     stringifier = stringify.Stringifier()

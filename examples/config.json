@@ -1,0 +1,30 @@
+{
+  "generators": [{
+    "type": "procedure replacement",
+    "replacements": {
+      "*": ["/", "+"],
+      "+": ["-", "*"],
+      "-": ["+", "/"],
+      "/": ["*", "-"],
+      "<": ["<=", ">"],
+      "<=": ["<", ">="],
+      "=": ["<", ">"],
+      ">": [">=", "<"],
+      ">=": [">", "<="],
+      "abs": ["+"],
+      "add1": ["sub1"],
+      "and": ["or"],
+      "andmap": ["ormap"],
+      "or": ["and"],
+      "ormap": ["andmap"],
+      "sub1": ["add1"]
+    }
+  }, {
+    "type": "procedure application replacement",
+    "replacements": {
+      "and": ["#t", "#f"],
+      "or": ["#t", "#f"],
+      "not": ["#t", "#f"]
+    }
+  }]
+}

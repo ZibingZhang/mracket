@@ -273,7 +273,7 @@ class Lexer:
         for character in token_source:
             if character == "\n":
                 self._lineno += 1
-                self._colno = 0
+                self._colno = 1
             else:
                 self._colno += 1
 

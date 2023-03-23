@@ -1,5 +1,4 @@
 """The mutation generator base class."""
-
 from __future__ import annotations
 
 import abc
@@ -9,7 +8,9 @@ from mracket import mutation
 from mracket.reader import syntax
 
 
-class BaseMutationGenerator(syntax.RacketASTVisitor, metaclass=abc.ABCMeta):
+class MutationGenerator(syntax.RacketASTVisitor, metaclass=abc.ABCMeta):
+    """Mutation generator base class."""
+
     def visit_program_node(self, node: syntax.RacketProgramNode) -> Generator[mutation.Mutation, None, None]:
         return
         yield
