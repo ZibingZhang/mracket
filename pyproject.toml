@@ -8,9 +8,6 @@ authors = [
 dynamic = [
     "version"
 ]
-dependencies = [
-    "strictyaml>=1.6"
-]
 
 [project.optional-dependencies]
 dev = [
